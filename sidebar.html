@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Groq AI Chat</title>
+    <link rel="stylesheet" href="css/cropper.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="top-bar">
+        <select id="model-select">
+            <option value="">載入模型...</option>
+        </select>
+        <button class="top-button" id="clear-history" title="清除對話">🗑️</button>
+        <button class="top-button" id="settings-button" title="設定">⚙️</button>
+    </div>
+
+    <div id="chat-history"></div>
+    
+    <div id="image-preview"></div>
+    <div class="input-container">
+        <div class="message-input-wrapper">
+            <textarea id="message-input" placeholder="輸入訊息..."></textarea>
+        </div>
+        <div class="input-buttons">
+            <button id="RAG-button" class="icon-button" title="RAG模式">&#128269;</button>
+            <button id="upload-button" class="icon-button" title="上傳圖片">📎</button>
+            <input type="file" id="file-input" accept="image/*">
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>API 設定</h3>
+            
+            <!-- LLM API 設定區塊 -->
+            <div class="api-section">
+                <h4>LLM API</h4>
+                <div class="api-type-selector">
+                    <label>
+                        <input type="radio" name="api-type" value="groq" checked> 
+                        Groq API
+                    </label>
+                    <label>
+                        <input type="radio" name="api-type" value="gemini"> 
+                        Gemini API
+                    </label>
+                </div>
+                <input type="text" id="api-key-input" placeholder="輸入 API Key">
+            </div>
+
+            <!-- Jina API 設定區塊 -->
+            <div class="api-section">
+                <h4>Jina API</h4>
+                <input type="text" id="jina-api-key-input" placeholder="輸入 Jina API Key">
+            </div>
+
+            <button id="save-api-key">儲存設定</button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>選擇圖片來源</h2>
+            <div class="upload-options">
+                <button id="screenshot-btn" class="option-btn">
+                    截取網頁
+                </button>
+                <button id="choose-file-btn" class="option-btn">
+                    選擇圖片
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cropper Modal -->
+    <div id="cropper-modal" class="modal">
+        <div class="modal-content" style="width: 90%; margin: 5% auto;">
+            <span class="close-modal">&times;</span>
+            <div id="cropper-container">
+                <img id="cropper-image" style="max-width: 100%;">
+            </div>
+            <div style="margin-top: 10px; text-align: right;">
+                <button id="confirm-crop" class="option-btn">確認裁切</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/cropper.min.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

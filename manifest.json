@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Chat Extension",
+  "version": "1.0",
+  "description": "Chat with AI models easily",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.groq.com/*",
+    "https://api.jina.ai/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/cropper.min.js",
+        "css/cropper.min.css",
+        "js/screenshot.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidebar.html"
+  },
+  "action": {
+    "default_title": "開啟 AI Chat",
+    "default_icon": {
+      "16": "images/icon48.png",
+      "48": "images/icon48.png",
+      "128": "images/icon48.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon48.png",
+    "48": "images/icon48.png",
+    "128": "images/icon48.png"
+  }
+}
