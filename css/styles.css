@@ -102,29 +102,34 @@ body {
 }
 
 /* 滾動條樣式 */
+.modal-content,
 #model-select,
 #chat-history {
     scrollbar-width: thin;
     scrollbar-color: #666666 #2d2d2d;
 }
 
+.modal-content::-webkit-scrollbar,
 #model-select::-webkit-scrollbar,
 #chat-history::-webkit-scrollbar {
     width: 4px;
 }
 
+.modal-content::-webkit-scrollbar-track,
 #model-select::-webkit-scrollbar-track,
 #chat-history::-webkit-scrollbar-track {
     background: #2d2d2d;
     border-radius: 2px;
 }
 
+.modal-content::-webkit-scrollbar-thumb,
 #model-select::-webkit-scrollbar-thumb,
 #chat-history::-webkit-scrollbar-thumb {
     background: #666666;
     border-radius: 2px;
 }
 
+.modal-content::-webkit-scrollbar-thumb:hover,
 #model-select::-webkit-scrollbar-thumb:hover,
 #chat-history::-webkit-scrollbar-thumb:hover {
     background: #808080;
@@ -238,11 +243,13 @@ body {
 .modal-content {
     position: relative;
     background-color: #2d2d2d;
-    margin: 15% auto;
+    margin: 10% auto;
     padding: 20px;
     width: 80%;
+    max-height: 80vh;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
 }
 
 .close-modal {
@@ -367,7 +374,12 @@ body {
     font-size: 14px;
 }
 
-#api-key-input,
+.api-input-wrapper {
+    margin: 10px 0;
+}
+
+#groq-api-key-input,
+#gemini-api-key-input,
 #tavily-api-key-input,
 #jina-api-key-input {
     width: 100%;

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const apiKeyInput = document.getElementById('api-key-input');
     const saveApiKeyButton = document.getElementById('save-api-key');
     const modelSelect = document.getElementById('model-select');
     const messageInput = document.getElementById('message-input');
@@ -32,6 +31,94 @@ document.addEventListener('DOMContentLoaded', function() {
     let contentEmbeddings = null; // 用於儲存文本的 embeddings
     let contentChunks = null; // 用於儲存文本的切割片段
     let isTavilyEnabled = false;
+
+    // 更新變數定義
+    const groqApiKeyInput = document.getElementById('groq-api-key-input');
+    const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
+    const groqApiWrapper = document.getElementById('groq-api-input');
+    const geminiApiWrapper = document.getElementById('gemini-api-input');
+    
+    // 添加 radio 切換事件
+    document.querySelectorAll('input[name="api-type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentApiType = this.value;
+            if (this.value === 'groq') {
+                groqApiWrapper.style.display = 'block';
+                geminiApiWrapper.style.display = 'none';
+            } else {
+                groqApiWrapper.style.display = 'none';
+                geminiApiWrapper.style.display = 'block';
+            }
+        });
+    });
+
+    // 修改儲存 API key 的處理
+    saveApiKeyButton.addEventListener('click', function() {
+        const groqApiKey = groqApiKeyInput.value.trim();
+        const geminiApiKey = geminiApiKeyInput.value.trim();
+        const jinaApiKey = jinaApiKeyInput.value.trim();
+        const tavilyApiKey = tavilyApiKeyInput.value.trim();
+        
+        const apiKey = currentApiType === 'groq' ? groqApiKey : geminiApiKey;
+        
+        if (apiKey) {
+            chrome.storage.local.set({ 
+                groqApiKey: groqApiKey,
+                geminiApiKey: geminiApiKey,
+                apiType: currentApiType,
+                jinaApiKey: jinaApiKey,
+                tavilyApiKey: tavilyApiKey
+            }, function() {
+                if (currentApiType === 'groq') {
+                    fetchGroqModels(groqApiKey);
+                } else {
+                    fetchGeminiModels();
+                }
+                closeModal();
+            });
+        }
+    });
+
+    // 修改載入已儲存的 API keys
+    function loadSavedApiKeys() {
+        chrome.storage.local.get([
+            'groqApiKey',
+            'geminiApiKey',
+            'jinaApiKey',
+            'tavilyApiKey',
+            'apiType'
+        ], function(result) {
+            if (result.groqApiKey) {
+                groqApiKeyInput.value = result.groqApiKey;
+            }
+            if (result.geminiApiKey) {
+                geminiApiKeyInput.value = result.geminiApiKey;
+            }
+            if (result.jinaApiKey) {
+                jinaApiKeyInput.value = result.jinaApiKey;
+            }
+            if (result.tavilyApiKey) {
+                tavilyApiKeyInput.value = result.tavilyApiKey;
+            }
+            if (result.apiType) {
+                currentApiType = result.apiType;
+                document.querySelector(`input[name="api-type"][value="${currentApiType}"]`).checked = true;
+                if (currentApiType === 'groq') {
+                    groqApiWrapper.style.display = 'block';
+                    geminiApiWrapper.style.display = 'none';
+                } else {
+                    groqApiWrapper.style.display = 'none';
+                    geminiApiWrapper.style.display = 'block';
+                }
+            }
+        });
+    }
+
+    // 在開啟 modal 時載入已儲存的設定
+    function openModal() {
+        loadSavedApiKeys();
+        settingsModal.style.display = 'block';
+    }
 
     // Modal functions
     function openModal() {
@@ -104,25 +191,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Save API key and fetch models
     saveApiKeyButton.addEventListener('click', function() {
-        const apiKey = apiKeyInput.value.trim();
+        const groqApiKey = groqApiKeyInput.value.trim();
+        const geminiApiKey = geminiApiKeyInput.value.trim();
         const jinaApiKey = jinaApiKeyInput.value.trim();
         const tavilyApiKey = tavilyApiKeyInput.value.trim();
-        
-        if (apiKey) {
-            chrome.storage.local.set({ 
-                [`${currentApiType}ApiKey`]: apiKey,
-                apiType: currentApiType,
-                jinaApiKey: jinaApiKey,
-                tavilyApiKey: tavilyApiKey
-            }, function() {
-                if (currentApiType === 'groq') {
-                    fetchGroqModels(apiKey);
-                } else {
-                    fetchGeminiModels();
-                }
-                closeModal();
-            });
-        }
+        chrome.storage.local.set({ 
+            groqApiKey: groqApiKey,
+            geminiApiKey: geminiApiKey,
+            apiType: currentApiType,
+            jinaApiKey: jinaApiKey,
+            tavilyApiKey: tavilyApiKey
+        }, function() {
+            if (currentApiType === 'groq') {
+                fetchGroqModels(groqApiKey);
+            } else {
+                fetchGeminiModels();
+            }
+            closeModal();
+        });
     });
 
     // Handle model selection change
@@ -310,7 +396,11 @@ document.addEventListener('DOMContentLoaded', function() {
             currentApiType = result.apiType;
             const savedKey = result[`${currentApiType}ApiKey`];
             if (savedKey) {
-                apiKeyInput.value = savedKey;
+                if (currentApiType === 'groq') {
+                    groqApiKeyInput.value = savedKey;
+                } else {
+                    geminiApiKeyInput.value = savedKey;
+                }
                 if (currentApiType === 'groq') {
                     fetchGroqModels(savedKey);
                 } else {
@@ -366,8 +456,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageText = messageInput.value.trim();
         if (!messageText && !currentImage) return;
 
+        // 檢查是否已選擇模型
+        if (!modelSelect.value) {
+            addMessageToChatHistory('❌ 請先選擇一個模型', 'system');
+            setTimeout(() => {
+                chatHistory.removeChild(chatHistory.lastChild);
+            }, 3000);
+            return;
+        }
+
         messageInput.value = '';
-        const apiKey = apiKeyInput.value;
+        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
         if (!apiKey) {
             alert('請先設定 API Key');
             return;
@@ -598,7 +697,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // 切換時讀取對應的 API key
             chrome.storage.local.get([`${currentApiType}ApiKey`], function(result) {
                 const savedKey = result[`${currentApiType}ApiKey`];
-                apiKeyInput.value = savedKey || '';
+                if (currentApiType === 'groq') {
+                    groqApiKeyInput.value = savedKey;
+                } else {
+                    geminiApiKeyInput.value = savedKey;
+                }
             });
         });
     });
@@ -896,6 +999,15 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleRAGQuestion(question) {
         if (!question) return;
 
+        // 檢查是否已選擇模型
+        if (!modelSelect.value) {
+            addMessageToChatHistory('❌ 請先選擇一個模型', 'system');
+            setTimeout(() => {
+                chatHistory.removeChild(chatHistory.lastChild);
+            }, 3000);
+            return;
+        }
+
         try {
             addMessageToChatHistory(question, 'user');
             messageInput.value = '';
@@ -937,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to call LLM API
     async function callLLMAPI(systemPrompt, userPrompt) {
-        const apiKey = apiKeyInput.value;
+        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
         if (!apiKey) {
             alert('請先設定 API Key');
             return;
@@ -971,11 +1083,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUIForMode() {
         if (contentEmbeddings) {
             // RAG 模式
+            tavilyButton.style.display = 'none';
             uploadButton.style.display = 'none';
             ragButton.style.display = 'none';
         } else {
             // 一般模式：根據模型類型決定是否顯示圖片上傳按鈕
-            ragButton.style.display = '';
+            tavilyButton.style.display = 'block';
+            ragButton.style.display = 'block';
             const selectedModel = modelSelect.value;
             const hasVision = selectedModel.toLowerCase().includes('vision') || 
                              selectedModel.toLowerCase().includes('llava') ||
