@@ -23,6 +23,7 @@
             <textarea id="message-input" placeholder="輸入訊息..."></textarea>
         </div>
         <div class="input-buttons">
+            <button id="tavily-button" class="icon-button" title="連網">&#127758;</button>
             <button id="RAG-button" class="icon-button" title="RAG模式">&#128269;</button>
             <button id="upload-button" class="icon-button" title="上傳圖片">📎</button>
             <input type="file" id="file-input" accept="image/*">
@@ -50,13 +51,16 @@
                 </div>
                 <input type="text" id="api-key-input" placeholder="輸入 API Key">
             </div>
-
+             <!-- Tavily API 設定區塊 -->
+             <div class="api-section">
+                <h4>Tavily API (連網搜尋)</h4>
+                <input type="text" id="tavily-api-key-input" placeholder="輸入 Tavily API Key">                
+            </div>
             <!-- Jina API 設定區塊 -->
             <div class="api-section">
-                <h4>Jina API</h4>
+                <h4>Jina API (RAG)</h4>
                 <input type="text" id="jina-api-key-input" placeholder="輸入 Jina API Key">
             </div>
-
             <button id="save-api-key">儲存設定</button>
         </div>
     </div>

@@ -41,12 +41,14 @@
 3. 設定必要的 API Keys：
    - Groq API 或 Gemini API（用於一般對話）
    - Jina API（用於 RAG 功能）
+   - Tavily API（用於網路搜尋功能）
 4. 選擇要使用的 AI 模型
 
 ### 一般對話
 1. 在輸入框輸入訊息
-2. 按 Enter 發送
-3. 等待 AI 回應
+2. 勾選「啟用連網」可讓 AI 透過網路搜尋相關資訊
+3. 按 Enter 發送
+4. 等待 AI 回應
 
 ### 圖片互動
 1. 點擊圖片上傳按鈕 (📎)
@@ -122,12 +124,14 @@ A Chrome extension that enables seamless communication with AI models, supportin
 3. Configure required API Keys:
    - Groq API or Gemini API (for general conversation)
    - Jina API (for RAG functionality)
+   - Tavily API (for web search functionality)
 4. Select your preferred AI model
 
 ### General Chat
 1. Enter your message in the input box
-2. Press Enter to send
-3. Wait for AI response
+2. Check "Enable Web Search" to allow AI to search for related information online
+3. Press Enter to send
+4. Wait for AI response
 
 ### Image Interaction
 1. Click the image upload button (📎)

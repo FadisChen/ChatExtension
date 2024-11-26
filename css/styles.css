@@ -258,17 +258,6 @@ body {
     color: #ffffff;
 }
 
-#api-key-input {
-    width: 100%;
-    padding: 8px;
-    margin: 10px 0;
-    border: 1px solid #404040;
-    border-radius: 4px;
-    background-color: #333333;
-    color: #e0e0e0;
-    box-sizing: border-box;
-}
-
 #save-api-key {
     background-color: #2e7d32;
     color: #ffffff;
@@ -378,6 +367,8 @@ body {
     font-size: 14px;
 }
 
+#api-key-input,
+#tavily-api-key-input,
 #jina-api-key-input {
     width: 100%;
     padding: 8px;
@@ -442,4 +433,14 @@ body {
     100% {
         opacity: 1;
     }
+}
+
+#tavily-button {
+    background-color: transparent;
+    transition: background-color 0.3s ease;
+}
+
+#tavily-button.active {
+    background-color: #94e299;
+    border-radius: 8px;
 }

@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeCropperBtn = cropperModal.querySelector('.close-modal');
     const jinaApiKeyInput = document.getElementById('jina-api-key-input');
     const ragButton = document.getElementById('RAG-button');
+    const tavilyApiKeyInput = document.getElementById('tavily-api-key-input');
+    const tavilyButton = document.getElementById('tavily-button');
     const API_ENDPOINTS = {
         groq: 'https://api.groq.com/openai/v1/chat/completions',
         gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
@@ -29,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentApiType = 'groq'; // 預設使用 Groq API
     let contentEmbeddings = null; // 用於儲存文本的 embeddings
     let contentChunks = null; // 用於儲存文本的切割片段
+    let isTavilyEnabled = false;
 
     // Modal functions
     function openModal() {
@@ -103,12 +106,14 @@ document.addEventListener('DOMContentLoaded', function() {
     saveApiKeyButton.addEventListener('click', function() {
         const apiKey = apiKeyInput.value.trim();
         const jinaApiKey = jinaApiKeyInput.value.trim();
+        const tavilyApiKey = tavilyApiKeyInput.value.trim();
         
         if (apiKey) {
             chrome.storage.local.set({ 
                 [`${currentApiType}ApiKey`]: apiKey,
                 apiType: currentApiType,
-                jinaApiKey: jinaApiKey  // 儲存 Jina API Key
+                jinaApiKey: jinaApiKey,
+                tavilyApiKey: tavilyApiKey
             }, function() {
                 if (currentApiType === 'groq') {
                     fetchGroqModels(apiKey);
@@ -293,7 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.storage.local.get([
         'groqApiKey', 
         'geminiApiKey', 
-        'jinaApiKey', 
+        'jinaApiKey',
+        'tavilyApiKey',
         'apiType', 
         'selectedModel', 
         'chatMessages',
@@ -338,6 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 chatHistory.removeChild(chatHistory.firstChild);
             }, 3000);
             updateUIForMode(); // 更新 UI
+        }
+        if (result.tavilyApiKey) {
+            tavilyApiKeyInput.value = result.tavilyApiKey;
         }
     });
 
@@ -398,7 +407,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!supportsImages) {
                     throw new Error('請選擇支援圖片的模型（包含 vision 或 llava 或 gemini）');
                 }
-
                 // 當有圖片時的訊息結構
                 messages.push({
                     role: "user",
@@ -416,17 +424,52 @@ document.addEventListener('DOMContentLoaded', function() {
                     ]
                 });
             } else {
+                 // messages 取得近六次的聊天歷史
+                const chatMessages = chatHistory.querySelectorAll('.user-message, .ai-message');
+                const lastSixMessages = Array.from(chatMessages).slice(-6);
                 // 純文字訊息
-                messages.push({
-                    role: 'system',
-                    content: '你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。'
+                if (isTavilyEnabled) {
+                    // 添加搜尋中的提示
+                    addMessageToChatHistory("🔍 正在搜尋相關資訊...", "system");
+                    
+                    try {
+                        const searchResult = await searchWithTavily(messageText);
+                        const searchContext = searchResult.answer + "\n\n相關資訊：\n" + 
+                            searchResult.results.map(r => `- ${r.title}: ${r.content.slice(0, 200)} [${r.url}]`).join('\n');
+                        
+                        // 移除搜尋提示
+                        chatHistory.removeChild(chatHistory.lastChild);
+                        
+                        // 修改系統提示，加入搜尋結果
+                        messages.push({
+                            role: 'system',
+                            content: `你是一個AI助手。請使用以下搜尋到的資訊來協助回答。若資訊不足，可使用自己的知識補充。
+                            搜尋結果：${searchContext}
+                            請用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
+                        });
+                    } catch (error) {
+                        console.error('搜尋錯誤:', error);
+                        addMessageToChatHistory("⚠️ 搜尋資訊時發生錯誤，將使用基本對話模式", "system");
+                        setTimeout(() => chatHistory.removeChild(chatHistory.lastChild), 3000);
+                    }
+                }
+                else {
+                    messages.push({
+                        role: 'system',
+                        content: '你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。'
+                    });
+                }
+                lastSixMessages.forEach(message => {
+                    messages.push({
+                        role: message.classList.contains('user-message') ? 'user' : 'assistant',
+                        content: message.textContent
+                    });
                 });
                 messages.push({
                     role: "user",
                     content: messageText
                 });
             }
-
             // 根據當前選擇的 API 類型選擇端點
             const apiEndpoint = API_ENDPOINTS[currentApiType];
             
@@ -940,4 +983,37 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadButton.style.display = hasVision ? 'block' : 'none';
         }
     }
+
+    // 新增 Tavily API 搜尋函數
+    async function searchWithTavily(query) {
+        const tavilyApiKey = tavilyApiKeyInput.value.trim();
+        if (!tavilyApiKey) {
+            throw new Error('Tavily API Key 未設置');
+        }
+
+        const response = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query: query,
+                api_key: tavilyApiKey,
+                include_answer: true
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Tavily API 錯誤: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    }
+
+    // 添加 Tavily 按鈕點擊事件
+    tavilyButton.addEventListener('click', function() {
+        isTavilyEnabled = !isTavilyEnabled;
+        this.classList.toggle('active', isTavilyEnabled);
+    });
 });
