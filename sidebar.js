@@ -114,21 +114,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 在開啟 modal 時載入已儲存的設定
-    function openModal() {
-        loadSavedApiKeys();
-        settingsModal.style.display = 'block';
-    }
-
     // Modal functions
     function openModal() {
-        // 從 storage 讀取當前的 API 類型
-        chrome.storage.local.get(['apiType'], function(result) {
-            if (result.apiType) {
-                currentApiType = result.apiType;
-                document.querySelector(`input[name="api-type"][value="${currentApiType}"]`).checked = true;
-            }
-        });
+        loadSavedApiKeys();
         settingsModal.style.display = 'block';
     }
 
@@ -523,7 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ]
                 });
             } else {
-                 // messages 取得近六次的聊天歷史
+                // messages 取得近六次的聊天歷史
                 const chatMessages = chatHistory.querySelectorAll('.user-message, .ai-message');
                 const lastSixMessages = Array.from(chatMessages).slice(-6);
                 // 純文字訊息
@@ -542,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // 修改系統提示，加入搜尋結果
                         messages.push({
                             role: 'system',
-                            content: `你是一個AI助手。請使用以下搜尋到的資訊來協助回答。若資訊不足，可使用自己的知識補充。
+                            content: `當前時間：${getCurrentTime()}\n你是一個AI助手。請使用以下搜尋到的資訊來協助回答。若資訊不足，可使用自己的知識補充。
                             搜尋結果：${searchContext}
                             請用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
                         });
@@ -551,11 +539,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         addMessageToChatHistory("⚠️ 搜尋資訊時發生錯誤，將使用基本對話模式", "system");
                         setTimeout(() => chatHistory.removeChild(chatHistory.lastChild), 3000);
                     }
-                }
-                else {
+                } else {
                     messages.push({
                         role: 'system',
-                        content: '你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。'
+                        content: `當前時間：${getCurrentTime()}\n你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
                     });
                 }
                 lastSixMessages.forEach(message => {
@@ -569,30 +556,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     content: messageText
                 });
             }
-            // 根據當前選擇的 API 類型選擇端點
-            const apiEndpoint = API_ENDPOINTS[currentApiType];
-            
-            const response = await fetch(apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: modelSelect.value,
-                    messages: messages
-                })
-            });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
-            }
-
-            const data = await response.json();
-            if (data.choices && data.choices[0] && data.choices[0].message) {
-                const aiResponse = data.choices[0].message.content;
-                addMessageToChatHistory(aiResponse, 'ai');
+            const answer = await callLLMAPI(messages);
+            if (answer) {
+                addMessageToChatHistory(answer, 'ai');
 
                 // 更新聊天歷史
                 chrome.storage.local.get(['chatMessages'], async function(result) {
@@ -614,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     chatMessages.push({ 
                         type: 'text',
-                        text: aiResponse, 
+                        text: answer, 
                         sender: 'ai' 
                     });
                     chrome.storage.local.set({ chatMessages });
@@ -637,8 +604,7 @@ document.addEventListener('DOMContentLoaded', function() {
             chrome.storage.local.remove([
                 'chatMessages',
                 'contentChunks',
-                'contentEmbeddings',
-                'currentContent'
+                'contentEmbeddings'
             ]);
             // 清除本地變數
             contentEmbeddings = null;
@@ -768,8 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
             chrome.storage.local.remove([
                 'chatMessages',
                 'contentChunks',
-                'contentEmbeddings',
-                'currentContent'
+                'contentEmbeddings'
             ]);
             // 清除本地變數
             contentEmbeddings = null;
@@ -800,10 +765,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // 儲存處理結果
                     chrome.storage.local.set({
-                        currentContent: cleanContent,
                         contentChunks: chunks,
-                        contentEmbeddings: embeddings,
-                        timestamp: new Date().getTime()
+                        contentEmbeddings: embeddings
                     }, function() {
                         // 清除處理狀態訊息
                         chatHistory.innerHTML = '';
@@ -957,7 +920,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 計算文本的特徵指紋
                 const text_fingerprint = text.split(' ').sort().join(' ');
                 
-                // 如果內容不重複且相關性分數足夠高
+                // 如果內容不重複且相性分數足夠高
                 if (!seen_content.has(text_fingerprint) && score > 0.5) {
                     filtered_results.push({
                         document: { text },
@@ -1030,14 +993,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 .map(result => contentChunks[result.index])
                 .join('\n\n');
             
-            // 使用 LLM 生成回答
-            const systemPrompt = `你是一個專業的問答助手。請根據提供的上下文內容，以繁體中文回答用戶的問題。
-            如果上下文中沒有足夠的資訊來回答問題，請誠實說明。
-            回答應該簡潔明瞭，並且直接針對問題給出答案。
-            #zh-TW`;
+            // 構建消息陣列
+            const messages = [
+                {
+                    role: 'system',
+                    content: `當前時間：${getCurrentTime()}\n你是一個專業的問答助手。請根據提供的上下文內容，以繁體中文回答用戶的問題。
+                    如果上下文中沒有足夠的資訊來回答問題，請誠實說明。
+                    回答應該簡潔明瞭，並且直接針對問題給出答案。
+                    #zh-TW`
+                },
+                {
+                    role: 'user',
+                    content: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
+                }
+            ];
 
-            const userPrompt = `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`;
-            const answer = await callLLMAPI(systemPrompt, userPrompt);
+            const answer = await callLLMAPI(messages);
             chatHistory.removeChild(chatHistory.lastChild);
             addMessageToChatHistory(answer, "ai");
 
@@ -1047,8 +1018,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Function to call LLM API
-    async function callLLMAPI(systemPrompt, userPrompt) {
+    async function callLLMAPI(messages) {
         const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
         if (!apiKey) {
             alert('請先設定 API Key');
@@ -1063,10 +1033,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({
                 model: modelSelect.value,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ]
+                messages: messages
             })
         });
 
@@ -1130,4 +1097,39 @@ document.addEventListener('DOMContentLoaded', function() {
         isTavilyEnabled = !isTavilyEnabled;
         this.classList.toggle('active', isTavilyEnabled);
     });
+
+    // 添加接收選取文字的處理
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "getSelectedText") {
+            messageInput.value = request.text;
+            if (!modelSelect.value) {
+                addMessageToChatHistory('❌ 請先選擇一個模型', 'system');
+                setTimeout(() => {
+                    chatHistory.removeChild(chatHistory.lastChild);
+                }, 3000);
+                return;
+            }
+            // 確保 API key 已設定
+            const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
+            if (!apiKey) {
+                addMessageToChatHistory('❌ 請先設定 API Key', 'system');
+                setTimeout(() => {
+                    chatHistory.removeChild(chatHistory.lastChild);
+                }, 3000);
+                return;
+            }
+            if (contentEmbeddings) {
+                handleRAGQuestion(request.text.trim());
+            } else {
+                sendMessage();
+            }
+        }
+    });
+
+    function getCurrentTime() {
+        const now = new Date();
+        return now.toLocaleString('zh-TW', {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        }).replace(/(\d+)\/(\d+)\/(\d+)/, '$1/$2/$3');
+    }
 });

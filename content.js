@@ -214,3 +214,25 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     })();
     return true;  // 保留 return true 表示我們會異步發送回應
 }); 
+
+// 監聽來自 background.js 的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "getSelectedText") {
+        // 將消息轉發到 sidebar
+        chrome.runtime.sendMessage({
+            action: "getSelectedText",
+            text: request.text
+        });
+    }
+});
+
+// 監聽選取文字事件
+document.addEventListener('selectionchange', function() {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+        chrome.runtime.sendMessage({
+            action: "updateContextMenu",
+            selectionText: selection.toString().trim()
+        });
+    }
+});
