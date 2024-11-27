@@ -38,6 +38,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const groqApiWrapper = document.getElementById('groq-api-input');
     const geminiApiWrapper = document.getElementById('gemini-api-input');
     
+    const logButton = document.getElementById('log-button');
+    const logModal = document.getElementById('log-modal');
+    const logList = document.getElementById('log-list');
+    const clearLogButton = document.getElementById('clear-log');
+    const closeLogModalBtn = logModal.querySelector('.close-modal');
+    
     // 添加 radio 切換事件
     document.querySelectorAll('input[name="api-type"]').forEach(radio => {
         radio.addEventListener('change', function() {
@@ -520,6 +526,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     addMessageToChatHistory("🔍 正在搜尋相關資訊...", "system");
                     
                     try {
+                        await logApiCall('Tavily', true);
                         const searchResult = await searchWithTavily(messageText);
                         const searchContext = searchResult.answer + "\n\n相關資訊：\n" + 
                             searchResult.results.map(r => `- ${r.title}: ${r.content.slice(0, 200)} [${r.url}]`).join('\n');
@@ -535,6 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             請用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
                         });
                     } catch (error) {
+                        await logApiCall('Tavily', false, error.message);
                         console.error('搜尋錯誤:', error);
                         addMessageToChatHistory("⚠️ 搜尋資訊時發生錯誤，將使用基本對話模式", "system");
                         setTimeout(() => chatHistory.removeChild(chatHistory.lastChild), 3000);
@@ -560,6 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const answer = await callLLMAPI(messages);
             if (answer) {
                 addMessageToChatHistory(answer, 'ai');
+                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
 
                 // 更新聊天歷史
                 chrome.storage.local.get(['chatMessages'], async function(result) {
@@ -591,6 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
         } catch (error) {
+            await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', false, error.message);
             console.error('Error:', error);
             addMessageToChatHistory('錯誤: ' + error.message, 'system');
         }
@@ -634,9 +644,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 messageElement.textContent = message;
             }
         } else {
-            messageElement.textContent = message;
             messageElement.classList.add(sender + '-message');
+            // 使用 marked 解析 Markdown
+            try {
+                messageElement.innerHTML = marked.parse(message);
+            } catch (error) {
+                console.error('Markdown 解析錯誤:', error);
+                messageElement.textContent = message;
+            }
         }
+        
+        // 為所有連結添加目標屬性
+        messageElement.querySelectorAll('a').forEach(link => {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        });
         
         chatHistory.appendChild(messageElement);
         chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -978,39 +1000,49 @@ document.addEventListener('DOMContentLoaded', function() {
             // 添加思考中的提示
             addMessageToChatHistory("🤔 正在思考回答...", "system");
 
-            const questionEmbedding = (await getEmbeddings([question]))[0];
-            const similarities = contentEmbeddings.map((embedding, index) => ({
-                index,
-                similarity: cosineSimilarity(questionEmbedding, embedding)
-            }));
+            try {
+                const questionEmbedding = (await getEmbeddings([question]))[0];
+                await logApiCall('JinaAI', true);
 
-            // 排序並獲取前幾個最相關的片段
-            const topResults = similarities
-            .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, 3);
+                const similarities = contentEmbeddings.map((embedding, index) => ({
+                    index,
+                    similarity: cosineSimilarity(questionEmbedding, embedding)
+                }));
+
+                const topResults = similarities
+                    .sort((a, b) => b.similarity - a.similarity)
+                    .slice(0, 3);
+                    
+                const relevantContent = topResults
+                    .map(result => contentChunks[result.index])
+                    .join('\n\n');
+
+                const messages = [
+                    {
+                        role: 'system',
+                        content: `當前時間：${getCurrentTime()}\n你是一個專業的問答助手。請根據提供的上下文內容，以繁體中文回答用戶的問題。
+                        如果上下文中沒有足夠的資訊來回答問題，請誠實說明。
+                        回答應該簡潔明瞭，並且直接針對問題給出答案。
+                        #zh-TW`
+                    },
+                    {
+                        role: 'user',
+                        content: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
+                    }
+                ];
+
+                const answer = await callLLMAPI(messages);
+                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
                 
-            const relevantContent = topResults
-                .map(result => contentChunks[result.index])
-                .join('\n\n');
-            
-            // 構建消息陣列
-            const messages = [
-                {
-                    role: 'system',
-                    content: `當前時間：${getCurrentTime()}\n你是一個專業的問答助手。請根據提供的上下文內容，以繁體中文回答用戶的問題。
-                    如果上下文中沒有足夠的資訊來回答問題，請誠實說明。
-                    回答應該簡潔明瞭，並且直接針對問題給出答案。
-                    #zh-TW`
-                },
-                {
-                    role: 'user',
-                    content: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
-                }
-            ];
+                chatHistory.removeChild(chatHistory.lastChild);
+                addMessageToChatHistory(answer, "ai");
 
-            const answer = await callLLMAPI(messages);
-            chatHistory.removeChild(chatHistory.lastChild);
-            addMessageToChatHistory(answer, "ai");
+            } catch (error) {
+                console.error('API 呼叫錯誤:', error);
+                await logApiCall('JinaAI', false, error.message);
+                chatHistory.removeChild(chatHistory.lastChild);
+                addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
+            }
 
         } catch (error) {
             console.error('處理問題時發生錯誤:', error);
@@ -1132,4 +1164,81 @@ document.addEventListener('DOMContentLoaded', function() {
             year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
         }).replace(/(\d+)\/(\d+)\/(\d+)/, '$1/$2/$3');
     }
+
+    // API Log 功能
+    async function logApiCall(apiType, isSuccess, errorMessage = '') {
+        const timestamp = getCurrentTime();
+        const logEntry = {
+            timestamp,
+            apiType,
+            isSuccess,
+            errorMessage
+        };
+
+        // 從 storage 獲取現有的 logs
+        const { apiLogs = [] } = await chrome.storage.local.get('apiLogs');
+        
+        // 添加新的 log
+        apiLogs.push(logEntry);
+        
+        // 儲存回 storage
+        await chrome.storage.local.set({ apiLogs });
+        
+        // 如果 log modal 開啟中，更新顯示
+        if (logModal.style.display === 'block') {
+            displayLogs();
+        }
+    }
+
+    // 顯示 logs
+    async function displayLogs() {
+        const { apiLogs = [] } = await chrome.storage.local.get('apiLogs');
+        
+        logList.innerHTML = apiLogs.reverse().map(log => `
+            <div class="log-entry ${log.isSuccess ? 'success' : 'error'}">
+                <div class="log-time">${log.timestamp}</div>
+                <div class="log-type">${log.apiType}</div>
+                <div class="log-status">
+                    ${log.isSuccess ? '✅ 成功' : `❌ 失敗${log.errorMessage ? ': ' + log.errorMessage : ''}`}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Log 按鈕點擊事件
+    logButton.addEventListener('click', () => {
+        logModal.style.display = 'block';
+        displayLogs();
+    });
+
+    // 清除 log 按鈕點擊事件
+    clearLogButton.addEventListener('click', async () => {
+        if (confirm('確定要清除所有 API 呼叫紀錄嗎？')) {
+            await chrome.storage.local.remove('apiLogs');
+            displayLogs();
+        }
+    });
+
+    // 添加關閉 Log Modal 的事件處理
+    closeLogModalBtn.addEventListener('click', () => {
+        logModal.style.display = 'none';
+    });
+
+    // 點擊 modal 外部區域關閉
+    window.addEventListener('click', function(event) {
+        if (event.target == logModal) {
+            logModal.style.display = 'none';
+        }
+    });
+
+    // 設定 marked 選項
+    marked.setOptions({
+        breaks: true,  // 支援換行
+        gfm: true,     // 支援 GitHub Flavored Markdown
+        sanitize: false, // 允許 HTML
+        highlight: function(code, lang) {
+            // 如果需要程式碼高亮，可以在這裡添加
+            return code;
+        }
+    });
 });

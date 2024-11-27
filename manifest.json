@@ -12,16 +12,15 @@
     "contextMenus"
   ],
   "host_permissions": [
-    "<all_urls>",
-    "https://api.groq.com/*",
-    "https://api.jina.ai/*"
+    "<all_urls>"
   ],
   "web_accessible_resources": [
     {
       "resources": [
         "js/cropper.min.js",
         "css/cropper.min.css",
-        "js/screenshot.js"
+        "js/screenshot.js",
+        "js/marked.min.js"
       ],
       "matches": ["<all_urls>"]
     }

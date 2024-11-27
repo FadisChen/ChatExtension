@@ -78,7 +78,7 @@ body {
 
 .user-message,
 .ai-message {
-    padding: 12px 16px;
+    padding: 1px 12px;
     margin: 8px 0;
     line-height: 1.5;
     font-size: 14px;
@@ -455,4 +455,122 @@ body {
 #tavily-button.active {
     background-color: #94e299;
     border-radius: 8px;
+}
+
+/* Log Modal 樣式 */
+.log-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-right: 30px;
+}
+
+.log-entry {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.9em;
+    color: #e0e0e0;
+}
+
+.log-type {
+    font-weight: bold;
+}
+
+#log-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Markdown 樣式 */
+/* 程式碼區塊 */
+.ai-message pre,
+.user-message pre {
+    background-color: #2d2d2d;
+    padding: 0.5em;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.3em 0;
+}
+
+.ai-message code,
+.user-message code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* 引用區塊 */
+.ai-message blockquote,
+.user-message blockquote {
+    border-left: 4px solid #666;
+    margin: 0.3em 0;
+    padding-left: 1em;
+    color: #888;
+}
+
+/* 列表樣式 */
+.ai-message ul,
+.user-message ul,
+.ai-message ol,
+.user-message ol {
+    padding-left: 1.5em;
+    margin: 0.3em 0;
+}
+
+/* 表格樣式 */
+.ai-message table,
+.user-message table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.3em 0;
+}
+
+.ai-message th,
+.user-message th,
+.ai-message td,
+.user-message td {
+    border: 1px solid #404040;
+    padding: 0.3em;
+    text-align: left;
+}
+
+.ai-message th,
+.user-message th {
+    background-color: #333;
+}
+
+/* 水平線 */
+.ai-message hr,
+.user-message hr {
+    border: none;
+    border-top: 1px solid #404040;
+    margin: 1em 0;
+}
+
+/* 圖片 */
+.ai-message img,
+.user-message img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 0.3em 0;
+}
+
+/* 連結 */
+.ai-message a,
+.user-message a {
+    color: #0099ff;
+    text-decoration: none;
+}
+
+.ai-message a:hover,
+.user-message a:hover {
+    text-decoration: underline;
 }

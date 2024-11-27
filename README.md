@@ -2,7 +2,7 @@
 
 <h1 id="chinese">AI Chat Chrome Extension</h1>
 
-可以輕鬆地與 AI 模型進行對話，支援文字、圖片互動以及 RAG (檢索增強生成) 功能。
+這個 Chrome Extension 讓你可以輕鬆地與 AI 模型進行對話，支援文字、圖片互動、網路搜尋以及 RAG (檢索增強生成) 功能。
 
 ## 功能特點
 
@@ -12,6 +12,7 @@
 - 支援繁體中文介面
 - 可保存對話歷史
 - 深色模式界面
+- 網路搜尋功能 (透過 Tavily API)
 
 ### 圖片功能
 - 支援圖片上傳
@@ -40,13 +41,15 @@
 2. 點擊設定按鈕 (⚙️)
 3. 設定必要的 API Keys：
    - Groq API 或 Gemini API（用於一般對話）
-   - Jina API（用於 RAG 功能）
    - Tavily API（用於網路搜尋功能）
+   - Jina API（用於 RAG 功能）
 4. 選擇要使用的 AI 模型
 
 ### 一般對話
 1. 在輸入框輸入訊息
-2. 勾選「啟用連網」可讓 AI 透過網路搜尋相關資訊
+2. 點擊地球圖示 (🌎) 可啟用網路搜尋功能
+   - 啟用後，AI 會先搜尋相關資訊再回答
+   - 適合詢問時事或需要最新資訊的問題
 3. 按 Enter 發送
 4. 等待 AI 回應
 
@@ -68,24 +71,28 @@
 - Chrome 瀏覽器 88 或更新版本
 - 有效的 API 金鑰：
   - Groq API 或 Gemini API
+  - Tavily API
   - Jina AI API
+- 穩定的網路連線
 
 ## 注意事項
 - 請確保 API 金鑰的安全性
 - 圖片大小限制為 4MB
 - RAG 功能需要額外的處理時間
+- 網路搜尋功能需要額外的處理時間
 - 建議在網路連線穩定的環境下使用
 
 ## 隱私聲明
 - 所有的對話內容僅儲存在本地
 - 圖片處理在本地進行
 - API 請求直接與相應的服務提供商進行
+- 網路搜尋結果僅用於當次對話
 
 ---
 
 <h1 id="english">AI Chat Chrome Extension</h1>
 
-A Chrome extension that enables seamless communication with AI models, supporting text, image interaction, and RAG (Retrieval-Augmented Generation) functionality.
+A Chrome extension that enables seamless communication with AI models, supporting text, image interaction, web search, and RAG (Retrieval-Augmented Generation) functionality.
 
 ## Features
 
@@ -95,6 +102,7 @@ A Chrome extension that enables seamless communication with AI models, supportin
 - Traditional Chinese interface support
 - Chat history preservation
 - Dark mode interface
+- Web search capability (via Tavily API)
 
 ### Image Features
 - Image upload support
@@ -123,13 +131,15 @@ A Chrome extension that enables seamless communication with AI models, supportin
 2. Click the settings button (⚙️)
 3. Configure required API Keys:
    - Groq API or Gemini API (for general conversation)
-   - Jina API (for RAG functionality)
    - Tavily API (for web search functionality)
+   - Jina API (for RAG functionality)
 4. Select your preferred AI model
 
 ### General Chat
 1. Enter your message in the input box
-2. Check "Enable Web Search" to allow AI to search for related information online
+2. Click the globe icon (🌎) to enable web search
+   - When enabled, AI will search for relevant information before responding
+   - Ideal for current events or questions requiring up-to-date information
 3. Press Enter to send
 4. Wait for AI response
 
@@ -151,15 +161,19 @@ A Chrome extension that enables seamless communication with AI models, supportin
 - Chrome browser version 88 or newer
 - Valid API keys:
   - Groq API or Gemini API
+  - Tavily API
   - Jina AI API
+- Stable internet connection
 
 ## Important Notes
 - Ensure API key security
 - Image size limit: 4MB
 - RAG functionality requires additional processing time
+- Web search functionality requires additional processing time
 - Stable internet connection recommended
 
 ## Privacy Statement
 - All conversation content stored locally only
 - Image processing performed locally
 - API requests made directly to respective service providers
+- Web search results are used only for the current conversation
