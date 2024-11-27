@@ -87,7 +87,7 @@ body {
 }
 
 .user-message {
-    text-align: right;
+    text-align: left;
     color: #393939;
     background-color: #9ac1fa;
     border-radius: 16px 16px 4px 16px;
@@ -109,12 +109,14 @@ body {
     scrollbar-color: #666666 #2d2d2d;
 }
 
+#message-input::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar,
 #model-select::-webkit-scrollbar,
 #chat-history::-webkit-scrollbar {
     width: 4px;
 }
 
+#message-input::-webkit-scrollbar-track,
 .modal-content::-webkit-scrollbar-track,
 #model-select::-webkit-scrollbar-track,
 #chat-history::-webkit-scrollbar-track {
@@ -122,6 +124,7 @@ body {
     border-radius: 2px;
 }
 
+#message-input::-webkit-scrollbar-thumb,
 .modal-content::-webkit-scrollbar-thumb,
 #model-select::-webkit-scrollbar-thumb,
 #chat-history::-webkit-scrollbar-thumb {
@@ -129,6 +132,7 @@ body {
     border-radius: 2px;
 }
 
+#message-input::-webkit-scrollbar-thumb:hover,
 .modal-content::-webkit-scrollbar-thumb:hover,
 #model-select::-webkit-scrollbar-thumb:hover,
 #chat-history::-webkit-scrollbar-thumb:hover {
@@ -500,10 +504,11 @@ body {
 
 .ai-message code,
 .user-message code {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: #2d2d2d;
     padding: 0.2em 0.4em;
     border-radius: 3px;
     font-family: monospace;
+    color: #e0e0e0;
 }
 
 /* 引用區塊 */
