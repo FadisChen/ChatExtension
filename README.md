@@ -15,16 +15,16 @@
 - 網路搜尋功能 (透過 Tavily API)
 
 ### 圖片功能
-- 支援圖片上傳
-- 網頁截圖功能
+- 支援圖片上傳（僅支援 Vision 相關模型）
+- 網頁截圖功能（可自由選擇區域）
 - 圖片裁切功能
 - 支援與圖片相關的 AI 對話
 
 ### RAG 功能
-- 網頁內容擷取
-- 文本向量化
-- 智能問答功能
-- 使用 Jina AI 進行文本處理
+- 網頁內容智能擷取
+- 使用 Jina AI 進行文本向量化
+- 智能問答功能（基於文本相似度）
+- 支援長文本理解和回答
 
 ## 安裝方法
 
@@ -47,25 +47,24 @@
 
 ### 一般對話
 1. 在輸入框輸入訊息
-2. 點擊地球圖示 (🌎) 可啟用網路搜尋功能
-   - 啟用後，AI 會先搜尋相關資訊再回答
-   - 適合詢問時事或需要最新資訊的問題
-3. 按 Enter 發送
-4. 等待 AI 回應
+2. 按 Enter 發送
+3. 等待 AI 回應
 
 ### 圖片互動
-1. 點擊圖片上傳按鈕 (📎)
-2. 選擇：
+1. 選擇支援 Vision 的模型
+2. 點擊圖片上傳按鈕 (📎)
+3. 選擇：
    - 截取網頁：擷取當前網頁畫面
    - 選擇圖片：上傳本地圖片
-3. 可進行圖片裁切
-4. 與 AI 討論圖片內容
+4. 可進行圖片裁切（支援自由選擇區域）
+5. 與 AI 討論圖片內容
 
 ### RAG 功能
 1. 點擊 RAG 按鈕 (🔍)
 2. 選擇網頁中要擷取的文本
-3. 等待系統處理文本
+3. 等待系統處理文本（需要一定時間）
 4. 開始提問相關內容
+5. 系統會自動找出最相關的內容進行回答
 
 ## 系統需求
 - Chrome 瀏覽器 88 或更新版本
@@ -84,15 +83,16 @@
 
 ## 隱私聲明
 - 所有的對話內容僅儲存在本地
-- 圖片處理在本地進行
+- 圖片處理完全在本地進行
 - API 請求直接與相應的服務提供商進行
+- 不會收集或上傳任何個人資訊
 - 網路搜尋結果僅用於當次對話
 
 ---
 
 <h1 id="english">AI Chat Chrome Extension</h1>
 
-A Chrome extension that enables seamless communication with AI models, supporting text, image interaction, web search, and RAG (Retrieval-Augmented Generation) functionality.
+This Chrome Extension enables seamless communication with AI models, supporting text, image interaction, web search, and RAG (Retrieval-Augmented Generation) functionality.
 
 ## Features
 
@@ -105,16 +105,16 @@ A Chrome extension that enables seamless communication with AI models, supportin
 - Web search capability (via Tavily API)
 
 ### Image Features
-- Image upload support
-- Webpage screenshot capability
+- Image upload support (Vision models only)
+- Webpage screenshot capability (with area selection)
 - Image cropping functionality
 - AI conversation about images
 
 ### RAG Features
-- Webpage content extraction
-- Text vectorization
-- Intelligent Q&A functionality
-- Text processing using Jina AI
+- Smart webpage content extraction
+- Text vectorization using Jina AI
+- Intelligent Q&A functionality (based on text similarity)
+- Long text comprehension and response support
 
 ## Installation
 
@@ -137,25 +137,24 @@ A Chrome extension that enables seamless communication with AI models, supportin
 
 ### General Chat
 1. Enter your message in the input box
-2. Click the globe icon (🌎) to enable web search
-   - When enabled, AI will search for relevant information before responding
-   - Ideal for current events or questions requiring up-to-date information
-3. Press Enter to send
-4. Wait for AI response
+2. Press Enter to send
+3. Wait for AI response
 
 ### Image Interaction
-1. Click the image upload button (📎)
-2. Choose:
+1. Select a Vision-compatible model
+2. Click the image upload button (📎)
+3. Choose:
    - Capture webpage: Take a screenshot of current page
    - Select image: Upload local image
-3. Crop image if needed
-4. Discuss image content with AI
+4. Crop image if needed (supports free area selection)
+5. Discuss image content with AI
 
 ### RAG Functionality
 1. Click the RAG button (🔍)
 2. Select text to extract from webpage
-3. Wait for text processing
+3. Wait for text processing (requires processing time)
 4. Start asking questions about the content
+5. System will automatically find and use the most relevant content for answers
 
 ## System Requirements
 - Chrome browser version 88 or newer
@@ -176,4 +175,5 @@ A Chrome extension that enables seamless communication with AI models, supportin
 - All conversation content stored locally only
 - Image processing performed locally
 - API requests made directly to respective service providers
-- Web search results are used only for the current conversation
+- No personal information collected or uploaded
+- Web search results used only for current conversation
