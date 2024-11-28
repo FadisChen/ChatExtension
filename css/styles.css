@@ -451,16 +451,6 @@ body {
     }
 }
 
-#tavily-button {
-    background-color: transparent;
-    transition: background-color 0.3s ease;
-}
-
-#tavily-button.active {
-    background-color: #94e299;
-    border-radius: 8px;
-}
-
 /* Log Modal 樣式 */
 .log-header {
     position: relative;

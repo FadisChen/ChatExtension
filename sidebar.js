@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const jinaApiKeyInput = document.getElementById('jina-api-key-input');
     const ragButton = document.getElementById('RAG-button');
     const tavilyApiKeyInput = document.getElementById('tavily-api-key-input');
-    const tavilyButton = document.getElementById('tavily-button');
     const API_ENDPOINTS = {
         groq: 'https://api.groq.com/openai/v1/chat/completions',
         gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
@@ -30,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentApiType = 'groq'; // 預設使用 Groq API
     let contentEmbeddings = null; // 用於儲存文本的 embeddings
     let contentChunks = null; // 用於儲存文本的切割片段
-    let isTavilyEnabled = false;
 
     // 更新變數定義
     const groqApiKeyInput = document.getElementById('groq-api-key-input');
@@ -446,6 +444,142 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 修改 callLLMAPI 函數
+    async function callLLMAPI(messages, withTools = true) {
+        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
+        if (!apiKey) {
+            alert('請先設定 API Key');
+            return;
+        }
+
+        // 目前gemini 不支援工具
+        if (currentApiType === 'gemini') {
+            withTools = false;
+        }
+
+        // 定義可用的工具
+        const tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_with_tavily",
+                    "description": "使用 Tavily 搜尋引擎搜尋網路上的相關資訊",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "搜尋關鍵字"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ];
+
+        try {
+            const response = await fetch(API_ENDPOINTS[currentApiType], {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: modelSelect.value,
+                    messages: messages,
+                    tools: withTools ? tools : [],
+                    tool_choice: "auto"
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
+            }
+
+            const data = await response.json();
+            const message = data.choices[0].message;
+
+            // 檢查是否有工具調用
+            if (message.tool_calls) {
+                const toolResults = [];
+                // 處理每個工具調用
+                for (const toolCall of message.tool_calls) {
+                    addMessageToChatHistory(
+                        `🛠️ 工具呼叫中...(工具:${toolCall.function.name}, 參數:${decodeUnicode(toolCall.function.arguments)})`, 
+                        'system'
+                    );
+                    const args = JSON.parse(decodeUnicode(toolCall.function.arguments));
+                    if (toolCall.function.name === 'search_with_tavily') {
+                        try {
+                            const result = await searchWithTavily(args.query);
+                            await logApiCall('Tavily', true);
+                            
+                            // 格式化搜尋結果
+                            const formattedResult = {
+                                answer: result.answer,
+                                sources: result.results.map(r => ({
+                                    title: r.title,
+                                    content: r.content.slice(0, 200),
+                                    url: r.url
+                                }))
+                            };
+                            
+                            toolResults.push({
+                                tool_call_id: toolCall.id,
+                                role: "tool",
+                                name: toolCall.function.name,
+                                content: JSON.stringify(formattedResult)
+                            });
+                            addMessageToChatHistory(`🔍 搜尋完成，找到 ${result.results.length} 筆資料`, 'system');
+                        } catch (error) {
+                            await logApiCall('Tavily', false, error.message);
+                            toolResults.push({
+                                tool_call_id: toolCall.id,
+                                role: "tool",
+                                name: toolCall.function.name,
+                                content: JSON.stringify({ error: error.message })
+                            });
+                            addMessageToChatHistory(`❌ 搜尋失敗: ${error.message}`, 'system');
+                        }
+                    }
+                }
+
+                // 如果有工具調用結果，進行第二次 API 調用
+                if (toolResults.length > 0) {
+                    const secondResponse = await fetch(API_ENDPOINTS[currentApiType], {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: modelSelect.value,
+                            messages: [
+                                ...messages,
+                                message,
+                                ...toolResults
+                            ]
+                        })
+                    });
+
+                    if (!secondResponse.ok) {
+                        throw new Error(`Second API call failed: ${secondResponse.status}`);
+                    }
+
+                    const secondData = await secondResponse.json();
+                    return secondData.choices[0].message.content;
+                }
+            }
+
+            return message.content;
+        } catch (error) {
+            console.error('API 調用錯誤:', error);
+            throw error;
+        }
+    }
+
     async function sendMessage() {
         const messageText = messageInput.value.trim();
         if (!messageText && !currentImage) return;
@@ -521,38 +655,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const chatMessages = chatHistory.querySelectorAll('.user-message, .ai-message');
                 const lastSixMessages = Array.from(chatMessages).slice(-6);
                 // 純文字訊息
-                if (isTavilyEnabled) {
-                    // 添加搜尋中的提示
-                    addMessageToChatHistory("🔍 正在搜尋相關資訊...", "system");
-                    
-                    try {
-                        await logApiCall('Tavily', true);
-                        const searchResult = await searchWithTavily(messageText);
-                        const searchContext = searchResult.answer + "\n\n相關資訊：\n" + 
-                            searchResult.results.map(r => `- ${r.title}: ${r.content.slice(0, 200)} [${r.url}]`).join('\n');
-                        
-                        // 移除搜尋提示
-                        chatHistory.removeChild(chatHistory.lastChild);
-                        
-                        // 修改系統提示，加入搜尋結果
-                        messages.push({
-                            role: 'system',
-                            content: `當前時間：${getCurrentTime()}\n你是一個AI助手。請使用以下搜尋到的資訊來協助回答。若資訊不足，可使用自己的知識補充。
-                            搜尋結果：${searchContext}
-                            請用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
-                        });
-                    } catch (error) {
-                        await logApiCall('Tavily', false, error.message);
-                        console.error('搜尋錯誤:', error);
-                        addMessageToChatHistory("⚠️ 搜尋資訊時發生錯誤，將使用基本對話模式", "system");
-                        setTimeout(() => chatHistory.removeChild(chatHistory.lastChild), 3000);
-                    }
-                } else {
-                    messages.push({
-                        role: 'system',
-                        content: `當前時間：${getCurrentTime()}\n你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
-                    });
-                }
+                messages.push({
+                    role: 'system',
+                    content: `當前時間：${getCurrentTime()}\n你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
+                });
                 lastSixMessages.forEach(message => {
                     messages.push({
                         role: message.classList.contains('user-message') ? 'user' : 'assistant',
@@ -565,7 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-            const answer = await callLLMAPI(messages);
+            const answer = await callLLMAPI(messages, currentImage ? false : true);// 如果沒有圖片，才可以使用工具
             if (answer) {
                 addMessageToChatHistory(answer, 'ai');
                 await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
@@ -581,7 +687,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                     if (currentImage) {
-                        // 創建並儲存縮圖
                         chatMessages.push({ 
                             type: 'image',
                             text: currentImage,
@@ -619,7 +724,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 清除本地變數
             contentEmbeddings = null;
             contentChunks = null;
-            addMessageToChatHistory("已清除對話紀錄，回到聊天模式。", "system");
+            addMessageToChatHistory("已清除對話紀錄。", "system");
             setTimeout(() => {
                 chatHistory.removeChild(chatHistory.firstChild);
             }, 3000);
@@ -845,8 +950,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!response.ok) {
+                await logApiCall('JinaAI', false, `API 請求失敗: ${response.status}`);
                 throw new Error(`API 請求失敗: ${response.status}`);
             }
+            await logApiCall('JinaAI', true);
 
             const result = await response.json();
             allEmbeddings.push(...result.data.map(item => item.embedding));
@@ -1000,10 +1107,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // 添加思考中的提示
             addMessageToChatHistory("🤔 正在思考回答...", "system");
 
+            const questionEmbedding = (await getEmbeddings([question]))[0];
+            await logApiCall('JinaAI', true);
             try {
-                const questionEmbedding = (await getEmbeddings([question]))[0];
-                await logApiCall('JinaAI', true);
-
                 const similarities = contentEmbeddings.map((embedding, index) => ({
                     index,
                     similarity: cosineSimilarity(questionEmbedding, embedding)
@@ -1031,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 ];
 
-                const answer = await callLLMAPI(messages);
+                const answer = await callLLMAPI(messages, false);
                 await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
                 
                 chatHistory.removeChild(chatHistory.lastChild);
@@ -1039,55 +1145,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } catch (error) {
                 console.error('API 呼叫錯誤:', error);
-                await logApiCall('JinaAI', false, error.message);
+                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', false, error.message);
                 chatHistory.removeChild(chatHistory.lastChild);
                 addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
             }
 
         } catch (error) {
+            await logApiCall('JinaAI', false, error.message);
             console.error('處理問題時發生錯誤:', error);
             addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
         }
-    }
-
-    async function callLLMAPI(messages) {
-        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
-        if (!apiKey) {
-            alert('請先設定 API Key');
-            return;
-        }
-
-        const response = await fetch(API_ENDPOINTS[currentApiType], {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: modelSelect.value,
-                messages: messages
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
     }
 
     // 在 DOMContentLoaded 事件中添加函數
     function updateUIForMode() {
         if (contentEmbeddings) {
             // RAG 模式
-            tavilyButton.style.display = 'none';
             uploadButton.style.display = 'none';
             ragButton.style.display = 'none';
         } else {
             // 一般模式：根據模型類型決定是否顯示圖片上傳按鈕
-            tavilyButton.style.display = 'block';
             ragButton.style.display = 'block';
             const selectedModel = modelSelect.value;
             const hasVision = selectedModel.toLowerCase().includes('vision') || 
@@ -1123,12 +1200,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = await response.json();
         return data;
     }
-
-    // 添加 Tavily 按鈕點擊事件
-    tavilyButton.addEventListener('click', function() {
-        isTavilyEnabled = !isTavilyEnabled;
-        this.classList.toggle('active', isTavilyEnabled);
-    });
 
     // 添加接收選取文字的處理
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -1241,4 +1312,26 @@ document.addEventListener('DOMContentLoaded', function() {
             return code;
         }
     });
+
+    // 添加一個用於解碼 Unicode 的輔助函數
+    function decodeUnicode(str) {
+        try {
+            // 如果是 JSON 字符串，先解析它
+            if (typeof str === 'string' && (str.startsWith('{') || str.startsWith('['))) {
+                const obj = JSON.parse(str);
+                // 將物件轉回字符串，並確保中文正確顯示
+                return JSON.stringify(obj, null, 2)
+                    .replace(/\\u[\dA-F]{4}/gi, match => 
+                        String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16))
+                    );
+            }
+            // 如果是普通字符串，直接解碼
+            return str.replace(/\\u[\dA-F]{4}/gi, match => 
+                String.fromCharCode(parseInt(match.replace(/\\u/g, ''), 16))
+            );
+        } catch (error) {
+            console.error('Unicode 解碼錯誤:', error);
+            return str; // 如果解碼失敗，返回原始字符串
+        }
+    }
 });
