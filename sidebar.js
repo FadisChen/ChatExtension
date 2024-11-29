@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 0; i < texts.length; i += batchSize) {
             const batch = texts.slice(i, i + batchSize);
             const data = {
-                "model": "jina-embeddings-v3",
+                "model": "jina-clip-v2",
                 "dimensions": 1024,
                 "normalized": true,
                 "embedding_type": "float",
