@@ -479,101 +479,159 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
 
         try {
-            const response = await fetch(API_ENDPOINTS[currentApiType], {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: modelSelect.value,
-                    messages: messages,
-                    tools: withTools ? tools : [],
-                    tool_choice: "auto"
-                })
-            });
+            // 為 Gemini API 添加串流處理
+            if (currentApiType === 'gemini') {
+                const response = await fetch(API_ENDPOINTS[currentApiType], {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelSelect.value,
+                        messages: messages,
+                        stream: true // 啟用串流
+                    })
+                });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
-            }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
+                }
 
-            const data = await response.json();
-            const message = data.choices[0].message;
+                const tempMessageId = 'temp-' + Date.now();
+                addMessageToChatHistory('', 'ai', tempMessageId);
+                const tempMessage = document.getElementById(tempMessageId);
+                let fullContent = '';
 
-            // 檢查是否有工具調用
-            if (message.tool_calls) {
-                const toolResults = [];
-                // 處理每個工具調用
-                for (const toolCall of message.tool_calls) {
-                    addMessageToChatHistory(
-                        `🛠️ 工具呼叫中...(工具:${toolCall.function.name}, 參數:${decodeUnicode(toolCall.function.arguments)})`, 
-                        'system'
-                    );
-                    const args = JSON.parse(decodeUnicode(toolCall.function.arguments));
-                    if (toolCall.function.name === 'search_with_tavily') {
-                        try {
-                            const result = await searchWithTavily(args.query);
-                            await logApiCall('Tavily', true);
-                            
-                            // 格式化搜尋結果
-                            const formattedResult = {
-                                answer: result.answer,
-                                sources: result.results.map(r => ({
-                                    title: r.title,
-                                    content: r.content.slice(0, 200),
-                                    url: r.url
-                                }))
-                            };
-                            
-                            toolResults.push({
-                                tool_call_id: toolCall.id,
-                                role: "tool",
-                                name: toolCall.function.name,
-                                content: JSON.stringify(formattedResult)
-                            });
-                            addMessageToChatHistory(`🔍 搜尋完成，找到 ${result.results.length} 筆資料`, 'system');
-                        } catch (error) {
-                            await logApiCall('Tavily', false, error.message);
-                            toolResults.push({
-                                tool_call_id: toolCall.id,
-                                role: "tool",
-                                name: toolCall.function.name,
-                                content: JSON.stringify({ error: error.message })
-                            });
-                            addMessageToChatHistory(`❌ 搜尋失敗: ${error.message}`, 'system');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.trim() === '' || line.trim() === '[DONE]') continue; // 忽略空行和 [DONE] 標記
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.choices && data.choices[0].delta.content) {
+                                    const content = data.choices[0].delta.content;
+                                    fullContent += content;
+                                    tempMessage.innerHTML = marked.parse(fullContent);
+                                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                                }
+                            } catch (error) {
+                                console.debug('無法解析的串流資料:', line);
+                                continue; // 跳過無法解析的資料
+                            }
                         }
                     }
                 }
 
-                // 如果有工具調用結果，進行第二次 API 調用
-                if (toolResults.length > 0) {
-                    const secondResponse = await fetch(API_ENDPOINTS[currentApiType], {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${apiKey}`
-                        },
-                        body: JSON.stringify({
-                            model: modelSelect.value,
-                            messages: [
-                                ...messages,
-                                message,
-                                ...toolResults
-                            ]
-                        })
-                    });
+                return fullContent;
+            } else {
+                // 原有的非串流處理邏輯保持不變
+                const response = await fetch(API_ENDPOINTS[currentApiType], {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelSelect.value,
+                        messages: messages,
+                        tools: withTools ? tools : [],
+                        tool_choice: "auto"
+                    })
+                });
 
-                    if (!secondResponse.ok) {
-                        throw new Error(`Second API call failed: ${secondResponse.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
+                }
+
+                const data = await response.json();
+                const message = data.choices[0].message;
+
+                // 檢查是否有工具調用
+                if (message.tool_calls) {
+                    const toolResults = [];
+                    // 處理每個工具調用
+                    for (const toolCall of message.tool_calls) {
+                        addMessageToChatHistory(
+                            `🛠️ 工具呼叫中...(工具:${toolCall.function.name}, 參數:${decodeUnicode(toolCall.function.arguments)})`, 
+                            'system'
+                        );
+                        const args = JSON.parse(decodeUnicode(toolCall.function.arguments));
+                        if (toolCall.function.name === 'search_with_tavily') {
+                            try {
+                                const result = await searchWithTavily(args.query);
+                                await logApiCall('Tavily', true);
+                                
+                                // 格式化搜尋結果
+                                const formattedResult = {
+                                    answer: result.answer,
+                                    sources: result.results.map(r => ({
+                                        title: r.title,
+                                        content: r.content.slice(0, 200),
+                                        url: r.url
+                                    }))
+                                };
+                                
+                                toolResults.push({
+                                    tool_call_id: toolCall.id,
+                                    role: "tool",
+                                    name: toolCall.function.name,
+                                    content: JSON.stringify(formattedResult)
+                                });
+                                addMessageToChatHistory(`🔍 搜尋完成，找到 ${result.results.length} 筆資料`, 'system');
+                            } catch (error) {
+                                await logApiCall('Tavily', false, error.message);
+                                toolResults.push({
+                                    tool_call_id: toolCall.id,
+                                    role: "tool",
+                                    name: toolCall.function.name,
+                                    content: JSON.stringify({ error: error.message })
+                                });
+                                addMessageToChatHistory(`❌ 搜尋失敗: ${error.message}`, 'system');
+                            }
+                        }
                     }
 
-                    const secondData = await secondResponse.json();
-                    return secondData.choices[0].message.content;
-                }
-            }
+                    // 如果有工具調用結果，進行第二次 API 調用
+                    if (toolResults.length > 0) {
+                        const secondResponse = await fetch(API_ENDPOINTS[currentApiType], {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`
+                            },
+                            body: JSON.stringify({
+                                model: modelSelect.value,
+                                messages: [
+                                    ...messages,
+                                    message,
+                                    ...toolResults
+                                ]
+                            })
+                        });
 
-            return message.content;
+                        if (!secondResponse.ok) {
+                            throw new Error(`Second API call failed: ${secondResponse.status}`);
+                        }
+
+                        const secondData = await secondResponse.json();
+                        return secondData.choices[0].message.content;
+                    }
+                }
+
+                return message.content;
+            }
         } catch (error) {
             console.error('API 調用錯誤:', error);
             throw error;
@@ -671,9 +729,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-            const answer = await callLLMAPI(messages, currentImage ? false : true);// 如果沒有圖片，才可以使用工具
+            const answer = await callLLMAPI(messages, currentImage ? false : true);
             if (answer) {
-                addMessageToChatHistory(answer, 'ai');
+                // 只有在非 Gemini 串流模式時才添加 AI 回應
+                if (currentApiType !== 'gemini') {
+                    addMessageToChatHistory(answer, 'ai');
+                }
                 await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
 
                 // 更新聊天歷史
@@ -732,8 +793,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function addMessageToChatHistory(message, sender) {
+    // 修改 addMessageToChatHistory 函數以支援臨時消息 ID
+    function addMessageToChatHistory(message, sender, tempId = null) {
         const messageElement = document.createElement('div');
+        messageElement.classList.add(sender + '-message');
+        
+        if (tempId) {
+            messageElement.id = tempId;
+        }
         
         if (sender === 'system') {
             messageElement.classList.add('system-message');
@@ -749,8 +816,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 messageElement.textContent = message;
             }
         } else {
-            messageElement.classList.add(sender + '-message');
-            // 使用 marked 解析 Markdown
             try {
                 messageElement.innerHTML = marked.parse(message);
             } catch (error) {
@@ -804,7 +869,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const geminiModels = [
             { id: 'gemini-2.0-flash-exp', name: 'Gemini-2.0-Flash-Exp'},
             { id: 'gemini-1.5-flash', name: 'Gemini-1.5-Flash' },
-            { id: 'gemini-1.5-pro', name: 'Gemini-1.5-Pro' }
+            { id: 'gemini-1.5-pro', name: 'Gemini-1.5-Pro' },
+			{ id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini-2.0-flash-thinking-exp'}
         ];
         
         modelSelect.innerHTML = '<option value="">選擇模型...</option>';
