@@ -391,11 +391,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const data = await response.json();
-            console.log('Gemini API Response:', data);
-
+            //console.log('Gemini API Response:', data);
+            let returnText = '';
             // 處理回應
             if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                return data.candidates[0].content.parts[0].text;
+                returnText = data.candidates[0].content.parts[0].text;
             }
 
             // 處理搜尋結果
@@ -413,10 +413,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 }
 
-                return data.candidates[0].content.parts[0].text + searchResults;
+                returnText = data.candidates[0].content.parts[0].text + searchResults;
             }
 
-            throw new Error('無法解析 API 回應');
+            return returnText;
 
         } catch (error) {
             console.error('API 調用錯誤:', error);
@@ -965,13 +965,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const answer = await callLLMAPI(messages, false);
                 await logApiCall('Gemini', true);
                 
-                chatHistory.removeChild(chatHistory.lastChild);
                 addMessageToChatHistory(answer, "ai");
 
             } catch (error) {
                 console.error('API 呼叫錯誤:', error);
                 await logApiCall('Gemini', false, error.message);
-                chatHistory.removeChild(chatHistory.lastChild);
                 addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
             }
 
