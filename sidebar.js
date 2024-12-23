@@ -481,12 +481,6 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // 為 Gemini API 添加串流處理
             if (currentApiType === 'gemini') {
-                // 移除"正在思考回答"的訊息
-                const thinkingMessage = chatHistory.querySelector('.system-message:last-child');
-                if (thinkingMessage && thinkingMessage.textContent.includes('正在思考回答')) {
-                    chatHistory.removeChild(thinkingMessage);
-                }
-
                 const response = await fetch(API_ENDPOINTS[currentApiType], {
                     method: 'POST',
                     headers: {
@@ -1213,11 +1207,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const answer = await callLLMAPI(messages, false);
                 await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
                 
-                // 只有在非 Gemini 串流模式時才移除"正在思考回答"的訊息和添加回答
-                if (currentApiType !== 'gemini') {
-                    chatHistory.removeChild(chatHistory.lastChild);
-                    addMessageToChatHistory(answer, "ai");
-                }
+                chatHistory.removeChild(chatHistory.lastChild);
+                addMessageToChatHistory(answer, "ai");
 
             } catch (error) {
                 console.error('API 呼叫錯誤:', error);
