@@ -12,10 +12,10 @@
 - 支援繁體中文介面
 - 可保存對話歷史
 - 深色模式界面
-- 網路搜尋功能 (透過 Tavily API)
+- 網路搜尋功能
 
 ### 圖片功能
-- 支援圖片上傳（僅支援 Vision 相關模型）
+- 支援圖片上傳
 - 網頁截圖功能（可自由選擇區域）
 - 圖片裁切功能
 - 支援與圖片相關的 AI 對話
@@ -41,7 +41,6 @@
 2. 點擊設定按鈕 (⚙️)
 3. 設定必要的 API Keys：
    - Gemini API（用於一般對話）
-   - Tavily API（用於網路搜尋功能）
    - Jina API（用於 RAG 功能）
 4. 選擇要使用的 AI 模型
 
@@ -51,13 +50,12 @@
 3. 等待 AI 回應
 
 ### 圖片互動
-1. 選擇支援 Vision 的模型
-2. 點擊圖片上傳按鈕 (📎)
-3. 選擇：
+1. 點擊圖片上傳按鈕 (📎)
+2. 選擇：
    - 截取網頁：擷取當前網頁畫面
    - 選擇圖片：上傳本地圖片
-4. 可進行圖片裁切（支援自由選擇區域）
-5. 與 AI 討論圖片內容
+3. 可進行圖片裁切（支援自由選擇區域）
+4. 與 AI 討論圖片內容
 
 ### RAG 功能
 1. 點擊 RAG 按鈕 (🔍)
@@ -70,7 +68,6 @@
 - Chrome 瀏覽器 88 或更新版本
 - 有效的 API 金鑰：
   - Gemini API
-  - Tavily API
   - Jina AI API
 - 穩定的網路連線
 
@@ -85,8 +82,7 @@
 - 所有的對話內容僅儲存在本地
 - 圖片處理完全在本地進行
 - API 請求直接與相應的服務提供商進行
-- 不會收集或上傳任何個人資訊
-- 網路搜尋結果僅用於當次對話
+- 不會收集或上傳任何個人資訊- 網路搜尋結果僅用於當次對話
 
 ---
 
@@ -102,10 +98,10 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 - Traditional Chinese interface support
 - Chat history preservation
 - Dark mode interface
-- Web search capability (via Tavily API)
+- Web search capability
 
 ### Image Features
-- Image upload support (Vision models only)
+- Image upload support
 - Webpage screenshot capability (with area selection)
 - Image cropping functionality
 - AI conversation about images
@@ -131,7 +127,6 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 2. Click the settings button (⚙️)
 3. Configure required API Keys:
    - Gemini API (for general conversation)
-   - Tavily API (for web search functionality)
    - Jina API (for RAG functionality)
 4. Select your preferred AI model
 
@@ -141,13 +136,12 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 3. Wait for AI response
 
 ### Image Interaction
-1. Select a Vision-compatible model
-2. Click the image upload button (📎)
-3. Choose:
+1. Click the image upload button (📎)
+2. Choose:
    - Capture webpage: Take a screenshot of current page
    - Select image: Upload local image
-4. Crop image if needed (supports free area selection)
-5. Discuss image content with AI
+3. Crop image if needed (supports free area selection)
+4. Discuss image content with AI
 
 ### RAG Functionality
 1. Click the RAG button (🔍)
@@ -160,7 +154,6 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 - Chrome browser version 88 or newer
 - Valid API keys:
   - Gemini API
-  - Tavily API
   - Jina AI API
 - Stable internet connection
 
