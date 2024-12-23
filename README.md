@@ -7,7 +7,7 @@
 ## 功能特點
 
 ### 基本功能
-- 支援多種 AI 模型 (Groq API 和 Gemini API)
+- 支援多種 AI 模型 (Gemini API)
 - 即時對話介面
 - 支援繁體中文介面
 - 可保存對話歷史
@@ -40,7 +40,7 @@
 1. 點擊擴充功能圖示開啟側邊欄
 2. 點擊設定按鈕 (⚙️)
 3. 設定必要的 API Keys：
-   - Groq API 或 Gemini API（用於一般對話）
+   - Gemini API（用於一般對話）
    - Tavily API（用於網路搜尋功能）
    - Jina API（用於 RAG 功能）
 4. 選擇要使用的 AI 模型
@@ -69,7 +69,7 @@
 ## 系統需求
 - Chrome 瀏覽器 88 或更新版本
 - 有效的 API 金鑰：
-  - Groq API 或 Gemini API
+  - Gemini API
   - Tavily API
   - Jina AI API
 - 穩定的網路連線
@@ -97,7 +97,7 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 ## Features
 
 ### Basic Functions
-- Multiple AI model support (Groq API and Gemini API)
+- Multiple AI model support (Gemini API)
 - Real-time chat interface
 - Traditional Chinese interface support
 - Chat history preservation
@@ -130,7 +130,7 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 1. Click the extension icon to open the sidebar
 2. Click the settings button (⚙️)
 3. Configure required API Keys:
-   - Groq API or Gemini API (for general conversation)
+   - Gemini API (for general conversation)
    - Tavily API (for web search functionality)
    - Jina API (for RAG functionality)
 4. Select your preferred AI model
@@ -159,7 +159,7 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 ## System Requirements
 - Chrome browser version 88 or newer
 - Valid API keys:
-  - Groq API or Gemini API
+  - Gemini API
   - Tavily API
   - Jina AI API
 - Stable internet connection

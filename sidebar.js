@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const saveApiKeyButton = document.getElementById('save-api-key');
     const modelSelect = document.getElementById('model-select');
     const messageInput = document.getElementById('message-input');
@@ -19,21 +19,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeCropperBtn = cropperModal.querySelector('.close-modal');
     const jinaApiKeyInput = document.getElementById('jina-api-key-input');
     const ragButton = document.getElementById('RAG-button');
-    const tavilyApiKeyInput = document.getElementById('tavily-api-key-input');
-    const API_ENDPOINTS = {
-        groq: 'https://api.groq.com/openai/v1/chat/completions',
-        gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
-    };
+    const API_ENDPOINTS = 'https://generativelanguage.googleapis.com/v1beta/models/';
     let currentImage = null;
     let cropper = null;
-    let currentApiType = 'groq'; // 預設使用 Groq API
     let contentEmbeddings = null; // 用於儲存文本的 embeddings
     let contentChunks = null; // 用於儲存文本的切割片段
 
     // 更新變數定義
-    const groqApiKeyInput = document.getElementById('groq-api-key-input');
     const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
-    const groqApiWrapper = document.getElementById('groq-api-input');
     const geminiApiWrapper = document.getElementById('gemini-api-input');
     
     const logButton = document.getElementById('log-button');
@@ -42,86 +35,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearLogButton = document.getElementById('clear-log');
     const closeLogModalBtn = logModal.querySelector('.close-modal');
     
-    // 添加 radio 切換事件
-    document.querySelectorAll('input[name="api-type"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            currentApiType = this.value;
-            if (this.value === 'groq') {
-                groqApiWrapper.style.display = 'block';
-                geminiApiWrapper.style.display = 'none';
-            } else {
-                groqApiWrapper.style.display = 'none';
-                geminiApiWrapper.style.display = 'block';
-            }
-        });
-    });
+    //updateApiInputVisibility();
+    //saveApiKeys();
 
-    // 修改儲存 API key 的處理
-    saveApiKeyButton.addEventListener('click', function() {
-        const groqApiKey = groqApiKeyInput.value.trim();
+    function updateApiInputVisibility() {
+        geminiApiWrapper.style.display = 'block';
+    }
+
+    // 儲存 API Keys
+    function saveApiKeys() {
         const geminiApiKey = geminiApiKeyInput.value.trim();
-        const jinaApiKey = jinaApiKeyInput.value.trim();
-        const tavilyApiKey = tavilyApiKeyInput.value.trim();
-        
-        const apiKey = currentApiType === 'groq' ? groqApiKey : geminiApiKey;
-        
-        if (apiKey) {
-            chrome.storage.local.set({ 
-                groqApiKey: groqApiKey,
+        chrome.storage.sync.set({
                 geminiApiKey: geminiApiKey,
-                apiType: currentApiType,
-                jinaApiKey: jinaApiKey,
-                tavilyApiKey: tavilyApiKey
-            }, function() {
-                if (currentApiType === 'groq') {
-                    fetchGroqModels(groqApiKey);
-                } else {
-                    fetchGeminiModels();
-                }
-                closeModal();
-            });
-        }
+        });
+    }
+
+    // 載入儲存的 API Keys
+    chrome.storage.sync.get([
+            'geminiApiKey',
+    ], function (result) {
+            if (result.geminiApiKey) {
+                geminiApiKeyInput.value = result.geminiApiKey;
+            }
+        updateApiInputVisibility();
     });
 
-    // 修改載入已儲存的 API keys
-    function loadSavedApiKeys() {
+    // Modal functions
+    function openModal() {
+        settingsModal.style.display = 'block';
+        // 載入已儲存的 API keys
         chrome.storage.local.get([
-            'groqApiKey',
             'geminiApiKey',
-            'jinaApiKey',
-            'tavilyApiKey',
-            'apiType'
+            'jinaApiKey'
         ], function(result) {
-            if (result.groqApiKey) {
-                groqApiKeyInput.value = result.groqApiKey;
-            }
             if (result.geminiApiKey) {
                 geminiApiKeyInput.value = result.geminiApiKey;
             }
             if (result.jinaApiKey) {
                 jinaApiKeyInput.value = result.jinaApiKey;
             }
-            if (result.tavilyApiKey) {
-                tavilyApiKeyInput.value = result.tavilyApiKey;
-            }
-            if (result.apiType) {
-                currentApiType = result.apiType;
-                document.querySelector(`input[name="api-type"][value="${currentApiType}"]`).checked = true;
-                if (currentApiType === 'groq') {
-                    groqApiWrapper.style.display = 'block';
-                    geminiApiWrapper.style.display = 'none';
-                } else {
-                    groqApiWrapper.style.display = 'none';
-                    geminiApiWrapper.style.display = 'block';
-                }
-            }
         });
-    }
-
-    // Modal functions
-    function openModal() {
-        loadSavedApiKeys();
-        settingsModal.style.display = 'block';
     }
 
     function closeModal() {
@@ -152,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners for settings modal
     settingsButton.addEventListener('click', openModal);
     closeModalBtn.addEventListener('click', closeModal);
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target == settingsModal) {
             closeModal();
         }
@@ -167,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners for upload modal
     uploadButton.addEventListener('click', openUploadModal);
     closeUploadModalBtn.addEventListener('click', closeUploadModal);
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target == uploadModal) {
             closeUploadModal();
         }
@@ -175,36 +128,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Event listeners for cropper modal
     closeCropperBtn.addEventListener('click', closeCropperModal);
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target == cropperModal) {
             closeCropperModal();
         }
     });
 
     // Save API key and fetch models
-    saveApiKeyButton.addEventListener('click', function() {
-        const groqApiKey = groqApiKeyInput.value.trim();
+    saveApiKeyButton.addEventListener('click', function () {
         const geminiApiKey = geminiApiKeyInput.value.trim();
         const jinaApiKey = jinaApiKeyInput.value.trim();
-        const tavilyApiKey = tavilyApiKeyInput.value.trim();
+        const apiKey = geminiApiKey;
+
+        if (apiKey) {
         chrome.storage.local.set({ 
-            groqApiKey: groqApiKey,
-            geminiApiKey: geminiApiKey,
-            apiType: currentApiType,
-            jinaApiKey: jinaApiKey,
-            tavilyApiKey: tavilyApiKey
-        }, function() {
-            if (currentApiType === 'groq') {
-                fetchGroqModels(groqApiKey);
-            } else {
-                fetchGeminiModels();
-            }
+                geminiApiKey: geminiApiKey,
+                jinaApiKey: jinaApiKey
+            }, function () {
             closeModal();
         });
+        }
     });
 
     // Handle model selection change
-    modelSelect.addEventListener('change', function() {
+    modelSelect.addEventListener('change', function () {
         const selectedModel = modelSelect.value;
         updateUIForMode();
         clearImagePreview();
@@ -212,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Image upload handling
-    fileInput.addEventListener('change', async function(e) {
+    fileInput.addEventListener('change', async function (e) {
         const file = e.target.files[0];
         if (file) {
             try {
@@ -227,11 +174,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Screenshot functionality
-    screenshotBtn.addEventListener('click', async function() {
+    screenshotBtn.addEventListener('click', async function () {
         closeUploadModal();
         try {
             // 注入裁切功能到當前頁面
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
             await chrome.scripting.insertCSS({
                 target: { tabId: tab.id },
@@ -244,11 +191,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             // 監聽來自內容腳本的消息
-            chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+            chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 if (request.type === 'screenshot' && request.imageData) {
                     currentImage = request.imageData.split(',')[1];
                     showImagePreview(`data:image/jpeg;base64,${currentImage}`);
-                    sendResponse({status: 'success'});
+                    sendResponse({ status: 'success' });
                 }
             });
 
@@ -259,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle crop confirmation
-    confirmCropBtn.addEventListener('click', async function() {
+    confirmCropBtn.addEventListener('click', async function () {
         if (!cropper) return;
 
         try {
@@ -324,81 +271,19 @@ document.addEventListener('DOMContentLoaded', function() {
         fileInput.value = '';
     }
 
-    // Function to fetch available models from Groq API
-    async function fetchGroqModels(apiKey) {
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/models', {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch models');
-            }
-            
-            const data = await response.json();
-            if (data.data && Array.isArray(data.data)) {
-                // 清除現有選項
-                modelSelect.innerHTML = '<option value="">選擇模型...</option>';
-                
-                // 過濾掉包含 whisper 的模型並排序
-                const filteredModels = data.data
-                    .filter(model => !model.id.toLowerCase().includes('whisper'))
-                    .sort((a, b) => a.id.localeCompare(b.id));
-
-                // 添加模型到選擇元素
-                filteredModels.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model.id;
-                    option.textContent = model.id;
-                    modelSelect.appendChild(option);
-                });
-
-                // 設置之前選擇的模型
-                chrome.storage.local.get(['selectedModel'], function(result) {
-                    if (result.selectedModel && modelSelect.querySelector(`option[value="${result.selectedModel}"]`)) {
-                        modelSelect.value = result.selectedModel;
-                        // 觸發 change 事件來更新 UI
-                        modelSelect.dispatchEvent(new Event('change'));
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching models:', error);
-            modelSelect.innerHTML = '<option value="">載入模型失敗</option>';
-            alert('載入模型失敗：' + error.message);
-        }
-    }
-
     // Load saved API key and fetch models if available
     chrome.storage.local.get([
-        'groqApiKey', 
         'geminiApiKey', 
         'jinaApiKey',
-        'tavilyApiKey',
         'apiType', 
         'selectedModel', 
         'chatMessages',
         'contentChunks',
         'contentEmbeddings'
-    ], function(result) {
-        if (result.apiType) {
-            currentApiType = result.apiType;
-            const savedKey = result[`${currentApiType}ApiKey`];
-            if (savedKey) {
-                if (currentApiType === 'groq') {
-                    groqApiKeyInput.value = savedKey;
-                } else {
-                    geminiApiKeyInput.value = savedKey;
-                }
-                if (currentApiType === 'groq') {
-                    fetchGroqModels(savedKey);
-                } else {
-                    fetchGeminiModels();
-                }
-            }
+    ], function (result) {
+        if (result.geminiApiKey) {
+            geminiApiKeyInput.value = result.geminiApiKey;
+            fetchGeminiModels();
         }
         
         // 載入 Jina API Key
@@ -427,13 +312,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 3000);
             updateUIForMode(); // 更新 UI
         }
-        if (result.tavilyApiKey) {
-            tavilyApiKeyInput.value = result.tavilyApiKey;
-        }
     });
 
     // Send message on Enter key
-    messageInput.addEventListener('keypress', function(e) {
+    messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault(); // Prevent new line
             if (contentEmbeddings) {
@@ -446,192 +328,96 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 修改 callLLMAPI 函數
     async function callLLMAPI(messages, withTools = true) {
-        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
+        const apiKey = geminiApiKeyInput.value;
         if (!apiKey) {
             alert('請先設定 API Key');
             return;
         }
 
-        // 目前gemini 不支援工具
-        if (currentApiType === 'gemini') {
-            withTools = false;
-        }
-
-        // 定義可用的工具
-        const tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_with_tavily",
-                    "description": "使用 Tavily 搜尋引擎搜尋網路上的相關資訊",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "搜尋關鍵字"
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            }
-        ];
-
         try {
-            // 為 Gemini API 添加串流處理
-            if (currentApiType === 'gemini') {
-                const response = await fetch(API_ENDPOINTS[currentApiType], {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: modelSelect.value,
-                        messages: messages,
-                        stream: true // 啟用串流
-                    })
-                });
+            // 構建請求內容
+            const requestBody = {
+                // 添加 system instruction
+                system_instruction: {
+                    parts: [{
+                        text: `你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。當前時間：${getCurrentTime()}`
+                    }]
+                },
+                contents: []
+            };
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
-                }
-
-                const tempMessageId = 'temp-' + Date.now();
-                addMessageToChatHistory('', 'ai', tempMessageId);
-                const tempMessage = document.getElementById(tempMessageId);
-                let fullContent = '';
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    
-                    for (const line of lines) {
-                        if (line.trim() === '' || line.trim() === '[DONE]') continue; // 忽略空行和 [DONE] 標記
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(line.slice(6));
-                                if (data.choices && data.choices[0].delta.content) {
-                                    const content = data.choices[0].delta.content;
-                                    fullContent += content;
-                                    tempMessage.innerHTML = marked.parse(fullContent);
-                                    chatHistory.scrollTop = chatHistory.scrollHeight;
-                                }
-                            } catch (error) {
-                                console.debug('無法解析的串流資料:', line);
-                                continue; // 跳過無法解析的資料
-                            }
-                        }
-                    }
-                }
-
-                return fullContent;
-            } else {
-                // 原有的非串流處理邏輯保持不變
-                const response = await fetch(API_ENDPOINTS[currentApiType], {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: modelSelect.value,
-                        messages: messages,
-                        tools: withTools ? tools : [],
-                        tool_choice: "auto"
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
-                }
-
-                const data = await response.json();
-                const message = data.choices[0].message;
-
-                // 檢查是否有工具調用
-                if (message.tool_calls) {
-                    const toolResults = [];
-                    // 處理每個工具調用
-                    for (const toolCall of message.tool_calls) {
-                        addMessageToChatHistory(
-                            `🛠️ 工具呼叫中...(工具:${toolCall.function.name}, 參數:${decodeUnicode(toolCall.function.arguments)})`, 
-                            'system'
-                        );
-                        const args = JSON.parse(decodeUnicode(toolCall.function.arguments));
-                        if (toolCall.function.name === 'search_with_tavily') {
-                            try {
-                                const result = await searchWithTavily(args.query);
-                                await logApiCall('Tavily', true);
-                                
-                                // 格式化搜尋結果
-                                const formattedResult = {
-                                    answer: result.answer,
-                                    sources: result.results.map(r => ({
-                                        title: r.title,
-                                        content: r.content.slice(0, 200),
-                                        url: r.url
-                                    }))
-                                };
-                                
-                                toolResults.push({
-                                    tool_call_id: toolCall.id,
-                                    role: "tool",
-                                    name: toolCall.function.name,
-                                    content: JSON.stringify(formattedResult)
-                                });
-                                addMessageToChatHistory(`🔍 搜尋完成，找到 ${result.results.length} 筆資料`, 'system');
-                            } catch (error) {
-                                await logApiCall('Tavily', false, error.message);
-                                toolResults.push({
-                                    tool_call_id: toolCall.id,
-                                    role: "tool",
-                                    name: toolCall.function.name,
-                                    content: JSON.stringify({ error: error.message })
-                                });
-                                addMessageToChatHistory(`❌ 搜尋失敗: ${error.message}`, 'system');
-                            }
-                        }
-                    }
-
-                    // 如果有工具調用結果，進行第二次 API 調用
-                    if (toolResults.length > 0) {
-                        const secondResponse = await fetch(API_ENDPOINTS[currentApiType], {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${apiKey}`
-                            },
-                            body: JSON.stringify({
-                                model: modelSelect.value,
-                                messages: [
-                                    ...messages,
-                                    message,
-                                    ...toolResults
-                                ]
-                            })
-                        });
-
-                        if (!secondResponse.ok) {
-                            throw new Error(`Second API call failed: ${secondResponse.status}`);
-                        }
-
-                        const secondData = await secondResponse.json();
-                        return secondData.choices[0].message.content;
-                    }
-                }
-
-                return message.content;
+            if (withTools) {
+                requestBody.tools = [{
+                    google_search: {}
+                }];
             }
+
+            // 處理多輪對話訊息
+            for (const message of messages) {
+                // 確保每個訊息都有內容
+                if (!message.parts || message.parts.length === 0) {
+                    if (message.content) {
+                        message.parts = [{
+                            text: message.content
+                        }];
+                    } else {
+                        continue; // 跳過沒有內容的訊息
+                    }
+                }
+
+                const content = {
+                    role: message.role === 'assistant' ? 'model' : message.role,
+                    parts: message.parts
+                };
+
+                requestBody.contents.push(content);
+            }
+
+            // 發送請求
+            const response = await fetch(
+                `${API_ENDPOINTS}${modelSelect.value}:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
+            }
+
+            const data = await response.json();
+            console.log('Gemini API Response:', data);
+
+            // 處理回應
+            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                return data.candidates[0].content.parts[0].text;
+            }
+
+            // 處理搜尋結果
+            if (data.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+                const metadata = data.candidates[0].groundingMetadata;
+                let searchResults = '';
+                
+                // 添加參考來源
+                if (metadata.groundingChunks) {
+                    searchResults += '\n\n參考來源：\n';
+                    metadata.groundingChunks.forEach((chunk, index) => {
+                        if (chunk.web) {
+                            searchResults += `${index + 1}. [${chunk.web.title}](${chunk.web.uri})\n`;
+                        }
+                    });
+                }
+
+                return data.candidates[0].content.parts[0].text + searchResults;
+            }
+
+            throw new Error('無法解析 API 回應');
+
         } catch (error) {
             console.error('API 調用錯誤:', error);
             throw error;
@@ -652,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         messageInput.value = '';
-        const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
+        const apiKey = geminiApiKeyInput.value;
         if (!apiKey) {
             alert('請先設定 API Key');
             return;
@@ -688,22 +474,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!modelName) {
                     throw new Error('請選擇一個模型');
                 }
-                const supportsImages = modelName.includes('vision') || modelName.includes('llava') || modelName.includes('gemini');
-                if (!supportsImages) {
-                    throw new Error('請選擇支援圖片的模型（包含 vision 或 llava 或 gemini）');
-                }
+
                 // 當有圖片時的訊息結構
                 messages.push({
                     role: "user",
-                    content: [
+                    parts: [
                         {
-                            type: "text",
                             text: messageText + "，請使用繁體中文回覆。#zh-TW" || "請用繁體中文描述這張圖片"
                         },
                         {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:image/jpeg;base64,${currentImage}`
+                            inline_data: {
+                                mime_type: "image/jpeg",
+                                data: currentImage
                             }
                         }
                     ]
@@ -712,33 +494,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 // messages 取得近六次的聊天歷史
                 const chatMessages = chatHistory.querySelectorAll('.user-message, .ai-message');
                 const lastSixMessages = Array.from(chatMessages).slice(-6);
-                // 純文字訊息
-                messages.push({
-                    role: 'system',
-                    content: `當前時間：${getCurrentTime()}\n你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。`
-                });
+
+                // 將聊天歷史轉換為 API 格式
                 lastSixMessages.forEach(message => {
                     messages.push({
-                        role: message.classList.contains('user-message') ? 'user' : 'assistant',
-                        content: message.textContent
+                        role: message.classList.contains('user-message') ? 'user' : 'model',
+                        parts: [{
+                            text: message.textContent
+                        }]
                     });
                 });
+
+                // 添加當前用戶訊息
                 messages.push({
                     role: "user",
-                    content: messageText
+                    parts: [{
+                        text: messageText
+                    }]
                 });
             }
 
             const answer = await callLLMAPI(messages, currentImage ? false : true);
             if (answer) {
-                // 只有在非 Gemini 串流模式時才添加 AI 回應
-                if (currentApiType !== 'gemini') {
-                    addMessageToChatHistory(answer, 'ai');
-                }
-                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
+                addMessageToChatHistory(answer, 'ai');
+                await logApiCall('Gemini', true);
 
                 // 更新聊天歷史
-                chrome.storage.local.get(['chatMessages'], async function(result) {
+                chrome.storage.local.get(['chatMessages'], async function (result) {
                     const chatMessages = result.chatMessages || [];
                     if (messageText) {
                         chatMessages.push({ 
@@ -766,14 +548,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
         } catch (error) {
-            await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', false, error.message);
+            await logApiCall('Gemini', false, error.message);
             console.error('Error:', error);
             addMessageToChatHistory('錯誤: ' + error.message, 'system');
         }
     }
 
     // Clear chat history
-    clearHistoryButton.addEventListener('click', function() {
+    clearHistoryButton.addEventListener('click', function () {
         if (confirm('確定要刪除對話紀錄？')) {
             chatHistory.innerHTML = '';
             // 清除所有相關資料
@@ -848,29 +630,13 @@ document.addEventListener('DOMContentLoaded', function() {
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // 添加 API 類型切換處理
-    document.querySelectorAll('input[name="api-type"]').forEach(radio => {
-        radio.addEventListener('change', function(e) {
-            currentApiType = e.target.value;
-            // 切換時讀取對應的 API key
-            chrome.storage.local.get([`${currentApiType}ApiKey`], function(result) {
-                const savedKey = result[`${currentApiType}ApiKey`];
-                if (currentApiType === 'groq') {
-                    groqApiKeyInput.value = savedKey;
-                } else {
-                    geminiApiKeyInput.value = savedKey;
-                }
-            });
-        });
-    });
-
     // 添加 Gemini 模型獲取函數
     async function fetchGeminiModels() {
         const geminiModels = [
-            { id: 'gemini-2.0-flash-exp', name: 'Gemini-2.0-Flash-Exp'},
+            { id: 'gemini-2.0-flash-exp', name: 'Gemini-2.0-Flash-Exp' },
             { id: 'gemini-1.5-flash', name: 'Gemini-1.5-Flash' },
             { id: 'gemini-1.5-pro', name: 'Gemini-1.5-Pro' },
-			{ id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini-2.0-flash-thinking-exp'}
+            { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini-2.0-flash-thinking-exp' }
         ];
         
         modelSelect.innerHTML = '<option value="">選擇模型...</option>';
@@ -882,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // 設置之前選擇的模型
-        chrome.storage.local.get(['selectedModel'], function(result) {
+        chrome.storage.local.get(['selectedModel'], function (result) {
             if (result.selectedModel && modelSelect.querySelector(`option[value="${result.selectedModel}"]`)) {
                 modelSelect.value = result.selectedModel;
                 modelSelect.dispatchEvent(new Event('change'));
@@ -891,16 +657,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 添加 RAG 按鈕點擊事件
-    ragButton.addEventListener('click', function() {
+    ragButton.addEventListener('click', function () {
         // 檢查是否有設定 Jina API Key
-        chrome.storage.local.get(['jinaApiKey'], function(result) {
+        chrome.storage.local.get(['jinaApiKey'], function (result) {
             if (!result.jinaApiKey) {
                 alert('請先在設定中設定 Jina API Key');
                 return;
             }
             
             // 發送消息給 content script 開始擷取
-            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                 if (tabs[0]) {
                     chrome.tabs.sendMessage(tabs[0].id, {
                         action: "startRAGCapture"
@@ -911,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 監聽來自 content script 的消息
-    chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request.action === "ragContentCaptured") {
             const content = request.content;
             // 使用 Jina API 進行向量化
@@ -942,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 切割文本
             const chunks = splitText(cleanContent);
             
-            chrome.storage.local.get(['jinaApiKey'], async function(result) {
+            chrome.storage.local.get(['jinaApiKey'], async function (result) {
                 const jinaApiKey = result.jinaApiKey;
                 
                 try {
@@ -961,7 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     chrome.storage.local.set({
                         contentChunks: chunks,
                         contentEmbeddings: embeddings
-                    }, function() {
+                    }, function () {
                         // 清除處理狀態訊息
                         chatHistory.innerHTML = '';
                         // 顯示完成訊息
@@ -1170,9 +936,6 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             addMessageToChatHistory(question, 'user');
             messageInput.value = '';
-            
-            // 添加思考中的提示
-            addMessageToChatHistory("🤔 正在思考回答...", "system");
 
             const questionEmbedding = (await getEmbeddings([question]))[0];
             await logApiCall('JinaAI', true);
@@ -1192,27 +955,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const messages = [
                     {
-                        role: 'system',
-                        content: `當前時間：${getCurrentTime()}\n你是一個專業的問答助手。請根據提供的上下文內容，以繁體中文回答用戶的問題。
-                        如果上下文中沒有足夠的資訊來回答問題，請誠實說明。
-                        回答應該簡潔明瞭，並且直接針對問題給出答案。
-                        #zh-TW`
-                    },
-                    {
                         role: 'user',
-                        content: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
+                        parts: [{
+                            text: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
+                        }]
                     }
                 ];
 
                 const answer = await callLLMAPI(messages, false);
-                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', true);
+                await logApiCall('Gemini', true);
                 
                 chatHistory.removeChild(chatHistory.lastChild);
                 addMessageToChatHistory(answer, "ai");
 
             } catch (error) {
                 console.error('API 呼叫錯誤:', error);
-                await logApiCall(currentApiType === 'groq' ? 'Groq' : 'Gemini', false, error.message);
+                await logApiCall('Gemini', false, error.message);
                 chatHistory.removeChild(chatHistory.lastChild);
                 addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
             }
@@ -1233,39 +991,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // 一般模式：根據模型類型決定是否顯示圖片上傳按鈕
             ragButton.style.display = 'block';
-            const selectedModel = modelSelect.value;
-            const hasVision = selectedModel.toLowerCase().includes('vision') || 
-                             selectedModel.toLowerCase().includes('llava') ||
-                             selectedModel.toLowerCase().includes('gemini');
-            uploadButton.style.display = hasVision ? 'block' : 'none';
+            uploadButton.style.display = 'block';
         }
-    }
-
-    // 新增 Tavily API 搜尋函數
-    async function searchWithTavily(query) {
-        const tavilyApiKey = tavilyApiKeyInput.value.trim();
-        if (!tavilyApiKey) {
-            throw new Error('Tavily API Key 未設置');
-        }
-
-        const response = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                query: query,
-                api_key: tavilyApiKey,
-                include_answer: true
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Tavily API 錯誤: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
     }
 
     // 添加接收選取文字的處理
@@ -1280,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             // 確保 API key 已設定
-            const apiKey = currentApiType === 'groq' ? groqApiKeyInput.value : geminiApiKeyInput.value;
+            const apiKey = geminiApiKeyInput.value;
             if (!apiKey) {
                 addMessageToChatHistory('❌ 請先設定 API Key', 'system');
                 setTimeout(() => {
@@ -1363,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 點擊 modal 外部區域關閉
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target == logModal) {
             logModal.style.display = 'none';
         }
@@ -1374,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function() {
         breaks: true,  // 支援換行
         gfm: true,     // 支援 GitHub Flavored Markdown
         sanitize: false, // 允許 HTML
-        highlight: function(code, lang) {
+        highlight: function (code, lang) {
             // 如果需要程式碼高亮，可以在這裡添加
             return code;
         }

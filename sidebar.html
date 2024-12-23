@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Groq AI Chat</title>
+    <title>Gemini AI Chat</title>
     <link rel="stylesheet" href="css/cropper.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -37,28 +37,12 @@
             
             <!-- LLM API 設定區塊 -->
             <div class="api-section">
-                <h4>LLM API</h4>
-                <div class="api-type-selector">
-                    <label>
-                        <input type="radio" name="api-type" value="groq" checked> 
-                        Groq API
-                    </label>
-                    <label>
-                        <input type="radio" name="api-type" value="gemini"> 
-                        Gemini API
-                    </label>
+                <h4>Gemini API</h4>
+                <div class="api-inputs">
+                    <div id="gemini-api-input" class="api-input-wrapper">
+                        <input type="text" id="gemini-api-key-input" placeholder="輸入 Gemini API Key">
+                    </div>
                 </div>
-                <div id="groq-api-input" class="api-input-wrapper">
-                    <input type="text" id="groq-api-key-input" placeholder="輸入 Groq API Key">
-                </div>
-                <div id="gemini-api-input" class="api-input-wrapper" style="display: none;">
-                    <input type="text" id="gemini-api-key-input" placeholder="輸入 Gemini API Key">
-                </div>
-            </div>
-             <!-- Tavily API 設定區塊 -->
-             <div class="api-section">
-                <h4>Tavily API (連網搜尋)</h4>
-                <input type="text" id="tavily-api-key-input" placeholder="輸入 Tavily API Key">                
             </div>
             <!-- Jina API 設定區塊 -->
             <div class="api-section">
