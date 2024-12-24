@@ -335,15 +335,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            // 構建請求內容
             const requestBody = {
-                // 添加 system instruction
                 system_instruction: {
                     parts: [{
                         text: `你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。當前時間：${getCurrentTime()}`
                     }]
                 },
-                contents: []
+                contents: [],
+                generationConfig: {
+                    temperature: 0.9,
+                    topK: 1,
+                    topP: 1,
+                    maxOutputTokens: 2048,
+                }
             };
 
             if (withTools) {
@@ -352,16 +356,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 }];
             }
 
-            // 處理多輪對話訊息
             for (const message of messages) {
-                // 確保每個訊息都有內容
                 if (!message.parts || message.parts.length === 0) {
                     if (message.content) {
                         message.parts = [{
                             text: message.content
                         }];
                     } else {
-                        continue; // 跳過沒有內容的訊息
+                        continue;
                     }
                 }
 
@@ -373,9 +375,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 requestBody.contents.push(content);
             }
 
-            // 發送請求
             const response = await fetch(
-                `${API_ENDPOINTS}${modelSelect.value}:generateContent?key=${apiKey}`,
+                `${API_ENDPOINTS}${modelSelect.value}:streamGenerateContent?key=${apiKey}&alt=sse`,
                 {
                     method: 'POST',
                     headers: {
@@ -386,37 +387,71 @@ document.addEventListener('DOMContentLoaded', function () {
             );
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.text();
                 throw new Error(errorData.error?.message || `API 錯誤 (${response.status})`);
             }
 
-            const data = await response.json();
-            //console.log('Gemini API Response:', data);
-            let returnText = '';
-            // 處理回應
-            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                returnText = data.candidates[0].content.parts[0].text;
-            }
+            const tempId = 'temp-' + Date.now();
+            addMessageToChatHistory('', 'ai', tempId);
+            const messageElement = document.getElementById(tempId);
+            let fullResponse = '';
 
-            // 處理搜尋結果
-            if (data.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-                const metadata = data.candidates[0].groundingMetadata;
-                let searchResults = '';
-                
-                // 添加參考來源
-                if (metadata.groundingChunks) {
-                    searchResults += '\n\n參考來源：\n';
-                    metadata.groundingChunks.forEach((chunk, index) => {
-                        if (chunk.web) {
-                            searchResults += `${index + 1}. [${chunk.web.title}](${chunk.web.uri})\n`;
+            const decoder = new TextDecoder();
+            const reader = response.body.getReader();
+            let buffer = '';
+
+            while (true) {
+                const {value, done} = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, {stream: true});
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonStr = line.slice(6);
+                        if (jsonStr.trim() === '[DONE]') continue;
+
+                        try {
+                            const data = JSON.parse(jsonStr);
+                            if (data.candidates && data.candidates[0].content) {
+                                const text = data.candidates[0].content.parts[0].text || '';
+                                fullResponse += text;
+
+                                const htmlContent = marked.parse(fullResponse);
+                                messageElement.innerHTML = htmlContent;
+
+                                messageElement.querySelectorAll('pre code').forEach((block) => {
+                                    hljs.highlightBlock(block);
+                                });
+
+                                if (data.candidates[0].finishReason === 'STOP' && 
+                                    data.candidates[0].groundingMetadata) {
+                                    const metadata = data.candidates[0].groundingMetadata;
+                                    
+                                    if (metadata.groundingChunks) {
+                                        let searchResults = '\n\n參考來源：\n';
+                                        metadata.groundingChunks.forEach((chunk, index) => {
+                                            if (chunk.web) {
+                                                searchResults += `${index + 1}. [${chunk.web.title}](${chunk.web.uri})\n`;
+                                            }
+                                        });
+                                        fullResponse += searchResults;
+                                        messageElement.innerHTML = marked.parse(fullResponse);
+                                    }
+                                }
+
+                                chatHistory.scrollTop = chatHistory.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.error('解析數據時發生錯誤:', e);
                         }
-                    });
+                    }
                 }
-
-                returnText = data.candidates[0].content.parts[0].text + searchResults;
             }
 
-            return returnText;
+            return fullResponse;
 
         } catch (error) {
             console.error('API 調用錯誤:', error);
@@ -516,7 +551,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const answer = await callLLMAPI(messages, currentImage ? false : true);
             if (answer) {
-                addMessageToChatHistory(answer, 'ai');
                 await logApiCall('Gemini', true);
 
                 // 更新聊天歷史
@@ -964,8 +998,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const answer = await callLLMAPI(messages, false);
                 await logApiCall('Gemini', true);
-                
-                addMessageToChatHistory(answer, "ai");
+
+                // 更新聊天歷史
+                chrome.storage.local.get(['chatMessages'], function (result) {
+                    const chatMessages = result.chatMessages || [];
+                    chatMessages.push({ 
+                        type: 'text',
+                        text: question, 
+                        sender: 'user' 
+                    });
+                    chatMessages.push({ 
+                        type: 'text',
+                        text: answer, 
+                        sender: 'ai' 
+                    });
+                    chrome.storage.local.set({ chatMessages });
+                });
 
             } catch (error) {
                 console.error('API 呼叫錯誤:', error);
