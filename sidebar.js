@@ -334,6 +334,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        if (modelSelect.value === 'gemini-2.0-flash-thinking-exp') {// 如果選擇了 gemini-2.0-flash-thinking-exp，則不使用工具
+            withTools = false;
+        }
+
         try {
             const requestBody = {
                 system_instruction: {
