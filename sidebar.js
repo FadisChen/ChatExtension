@@ -536,12 +536,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // 將聊天歷史轉換為 API 格式
                 lastSixMessages.forEach(message => {
-                    messages.push({
-                        role: message.classList.contains('user-message') ? 'user' : 'model',
-                        parts: [{
-                            text: message.textContent
-                        }]
-                    });
+                    // 檢查是否為圖片訊息
+                    const imageElement = message.querySelector('.image-message img');
+                    if (imageElement) {
+                        // 跳過圖片訊息，因為我們不能在後續對話中重用圖片
+                        return;
+                    }
+
+                    // 處理文字訊息
+                    const textContent = message.textContent.trim();
+                    if (textContent) {
+                        messages.push({
+                            role: message.classList.contains('user-message') ? 'user' : 'model',
+                            parts: [{
+                                text: textContent
+                            }]
+                        });
+                    }
                 });
 
                 // 添加當前用戶訊息
@@ -942,7 +953,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
         } catch (error) {
             console.error('重新排序時發生錯誤:', error);
-            // 如果 rerank 失敗，返回基於原始順序的結果
+            // 如��� rerank 失敗，返回基於原始順序的結果
             return texts.slice(0, 3).map(text => ({
                 document: { text },
                 relevance_score: 1.0
