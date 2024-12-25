@@ -22,8 +22,8 @@
 
 ### RAG 功能
 - 網頁內容智能擷取
-- 使用 Jina AI 進行文本向量化
-- 智能問答功能（基於文本相似度）
+- 使用 Gemini API 進行文本理解
+- 智能問答功能
 - 支援長文本理解和回答
 
 ## 安裝方法
@@ -39,9 +39,8 @@
 ### 基本設定
 1. 點擊擴充功能圖示開啟側邊欄
 2. 點擊設定按鈕 (⚙️)
-3. 設定必要的 API Keys：
-   - Gemini API（用於一般對話）
-   - Jina API（用於 RAG 功能）
+3. 設定必要的 API Key：
+   - Gemini API（用於一般對話和 RAG 功能）
 4. 選擇要使用的 AI 模型
 
 ### 一般對話
@@ -60,29 +59,27 @@
 ### RAG 功能
 1. 點擊 RAG 按鈕 (🔍)
 2. 選擇網頁中要擷取的文本
-3. 等待系統處理文本（需要一定時間）
+3. 等待系統處理文本
 4. 開始提問相關內容
-5. 系統會自動找出最相關的內容進行回答
+5. 系統會使用 Gemini API 理解文本並回答問題
 
 ## 系統需求
 - Chrome 瀏覽器 88 或更新版本
-- 有效的 API 金鑰：
-  - Gemini API
-  - Jina AI API
+- 有效的 Gemini API 金鑰
 - 穩定的網路連線
 
 ## 注意事項
 - 請確保 API 金鑰的安全性
 - 圖片大小限制為 4MB
-- RAG 功能需要額外的處理時間
 - 網路搜尋功能需要額外的處理時間
 - 建議在網路連線穩定的環境下使用
 
 ## 隱私聲明
 - 所有的對話內容僅儲存在本地
 - 圖片處理完全在本地進行
-- API 請求直接與相應的服務提供商進行
-- 不會收集或上傳任何個人資訊- 網路搜尋結果僅用於當次對話
+- API 請求直接與 Google 服務進行
+- 不會收集或上傳任何個人資訊
+- 網路搜尋結果僅用於當次對話
 
 ---
 
@@ -108,8 +105,8 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 
 ### RAG Features
 - Smart webpage content extraction
-- Text vectorization using Jina AI
-- Intelligent Q&A functionality (based on text similarity)
+- Text understanding using Gemini API
+- Intelligent Q&A functionality
 - Long text comprehension and response support
 
 ## Installation
@@ -125,9 +122,8 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 ### Basic Setup
 1. Click the extension icon to open the sidebar
 2. Click the settings button (⚙️)
-3. Configure required API Keys:
-   - Gemini API (for general conversation)
-   - Jina API (for RAG functionality)
+3. Configure required API Key:
+   - Gemini API (for general conversation and RAG functionality)
 4. Select your preferred AI model
 
 ### General Chat
@@ -146,27 +142,24 @@ This Chrome Extension enables seamless communication with AI models, supporting 
 ### RAG Functionality
 1. Click the RAG button (🔍)
 2. Select text to extract from webpage
-3. Wait for text processing (requires processing time)
+3. Wait for text processing
 4. Start asking questions about the content
-5. System will automatically find and use the most relevant content for answers
+5. System will use Gemini API to understand and answer questions
 
 ## System Requirements
 - Chrome browser version 88 or newer
-- Valid API keys:
-  - Gemini API
-  - Jina AI API
+- Valid Gemini API key
 - Stable internet connection
 
 ## Important Notes
 - Ensure API key security
 - Image size limit: 4MB
-- RAG functionality requires additional processing time
 - Web search functionality requires additional processing time
 - Stable internet connection recommended
 
 ## Privacy Statement
 - All conversation content stored locally only
 - Image processing performed locally
-- API requests made directly to respective service providers
+- API requests made directly to Google services
 - No personal information collected or uploaded
 - Web search results used only for current conversation

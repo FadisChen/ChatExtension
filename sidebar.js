@@ -17,13 +17,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const cropperModal = document.getElementById('cropper-modal');
     const confirmCropBtn = document.getElementById('confirm-crop');
     const closeCropperBtn = cropperModal.querySelector('.close-modal');
-    const jinaApiKeyInput = document.getElementById('jina-api-key-input');
     const ragButton = document.getElementById('RAG-button');
     const API_ENDPOINTS = 'https://generativelanguage.googleapis.com/v1beta/models/';
     let currentImage = null;
     let cropper = null;
-    let contentEmbeddings = null; // 用於儲存文本的 embeddings
-    let contentChunks = null; // 用於儲存文本的切割片段
+    let contentChunks = null; // 用於儲存文本內容
 
     // 更新變數定義
     const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
@@ -46,17 +44,17 @@ document.addEventListener('DOMContentLoaded', function () {
     function saveApiKeys() {
         const geminiApiKey = geminiApiKeyInput.value.trim();
         chrome.storage.sync.set({
-                geminiApiKey: geminiApiKey,
+            geminiApiKey: geminiApiKey
         });
     }
 
     // 載入儲存的 API Keys
     chrome.storage.sync.get([
-            'geminiApiKey',
+        'geminiApiKey'
     ], function (result) {
-            if (result.geminiApiKey) {
-                geminiApiKeyInput.value = result.geminiApiKey;
-            }
+        if (result.geminiApiKey) {
+            geminiApiKeyInput.value = result.geminiApiKey;
+        }
         updateApiInputVisibility();
     });
 
@@ -65,14 +63,10 @@ document.addEventListener('DOMContentLoaded', function () {
         settingsModal.style.display = 'block';
         // 載入已儲存的 API keys
         chrome.storage.local.get([
-            'geminiApiKey',
-            'jinaApiKey'
+            'geminiApiKey'
         ], function(result) {
             if (result.geminiApiKey) {
                 geminiApiKeyInput.value = result.geminiApiKey;
-            }
-            if (result.jinaApiKey) {
-                jinaApiKeyInput.value = result.jinaApiKey;
             }
         });
     }
@@ -137,16 +131,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Save API key and fetch models
     saveApiKeyButton.addEventListener('click', function () {
         const geminiApiKey = geminiApiKeyInput.value.trim();
-        const jinaApiKey = jinaApiKeyInput.value.trim();
         const apiKey = geminiApiKey;
 
         if (apiKey) {
-        chrome.storage.local.set({ 
-                geminiApiKey: geminiApiKey,
-                jinaApiKey: jinaApiKey
+            chrome.storage.local.set({ 
+                geminiApiKey: geminiApiKey
             }, function () {
-            closeModal();
-        });
+                closeModal();
+            });
         }
     });
 
@@ -274,21 +266,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load saved API key and fetch models if available
     chrome.storage.local.get([
         'geminiApiKey', 
-        'jinaApiKey',
         'apiType', 
         'selectedModel', 
         'chatMessages',
-        'contentChunks',
-        'contentEmbeddings'
+        'contentChunks'
     ], function (result) {
         if (result.geminiApiKey) {
             geminiApiKeyInput.value = result.geminiApiKey;
             fetchGeminiModels();
-        }
-        
-        // 載入 Jina API Key
-        if (result.jinaApiKey) {
-            jinaApiKeyInput.value = result.jinaApiKey;
         }
         
         // 恢復聊天歷史
@@ -303,10 +288,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // 恢復 RAG 相關資料
-        if (result.contentChunks && result.contentEmbeddings) {
+        if (result.contentChunks) {
             contentChunks = result.contentChunks;
-            contentEmbeddings = result.contentEmbeddings;
-            addMessageToChatHistory("✅ 已載入先前的文本向量，您可以繼續提問", "system");
+            addMessageToChatHistory("✅ 已載入先前的文本內容，您可以繼續提問", "system");
             setTimeout(() => {
                 chatHistory.removeChild(chatHistory.firstChild);
             }, 3000);
@@ -318,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function () {
     messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault(); // Prevent new line
-            if (contentEmbeddings) {
+            if (contentChunks) {
                 handleRAGQuestion(messageInput.value.trim());
             } else {
                 sendMessage();
@@ -610,11 +594,9 @@ document.addEventListener('DOMContentLoaded', function () {
             // 清除所有相關資料
             chrome.storage.local.remove([
                 'chatMessages',
-                'contentChunks',
-                'contentEmbeddings'
+                'contentChunks'
             ]);
             // 清除本地變數
-            contentEmbeddings = null;
             contentChunks = null;
             addMessageToChatHistory("已清除對話紀錄。", "system");
             setTimeout(() => {
@@ -707,267 +689,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 添加 RAG 按鈕點擊事件
     ragButton.addEventListener('click', function () {
-        // 檢查是否有設定 Jina API Key
-        chrome.storage.local.get(['jinaApiKey'], function (result) {
-            if (!result.jinaApiKey) {
-                alert('請先在設定中設定 Jina API Key');
-                return;
+        // 檢查是否已選擇模型
+        if (!modelSelect.value) {
+            addMessageToChatHistory('❌ 請先選擇一個模型', 'system');
+            setTimeout(() => {
+                chatHistory.removeChild(chatHistory.lastChild);
+            }, 3000);
+            return;
+        }
+        // 檢查是否已設定 API key
+        if (!geminiApiKeyInput.value) {
+            addMessageToChatHistory('❌ 請先設定 API Key', 'system');
+            setTimeout(() => {
+                chatHistory.removeChild(chatHistory.lastChild);
+            }, 3000);
+            return;
+        }
+        // 發送消息給 content script 開始擷取
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "startRAGCapture"
+                });
             }
-            
-            // 發送消息給 content script 開始擷取
-            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-                if (tabs[0]) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        action: "startRAGCapture"
-                    });
-                }
-            });
         });
     });
-
-    // 監聽來自 content script 的消息
-    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-        if (request.action === "ragContentCaptured") {
-            const content = request.content;
-            // 使用 Jina API 進行向量化
-            vectorizeContent(content);
-        }
-    });
-
-    // 向量化內容的函數
-    async function vectorizeContent(content) {
-        try {
-            // 清空聊天歷史
-            chatHistory.innerHTML = '';
-            // 清除所有相關資料
-            chrome.storage.local.remove([
-                'chatMessages',
-                'contentChunks',
-                'contentEmbeddings'
-            ]);
-            // 清除本地變數
-            contentEmbeddings = null;
-            contentChunks = null;
-
-            addMessageToChatHistory("正在處理文本，請稍候...", "system");
-
-            // 去除 HTML 標籤
-            const cleanContent = stripHtmlTags(content);
-
-            // 切割文本
-            const chunks = splitText(cleanContent);
-            
-            chrome.storage.local.get(['jinaApiKey'], async function (result) {
-                const jinaApiKey = result.jinaApiKey;
-                
-                try {
-                    // 更新處理狀態
-                    chatHistory.innerHTML = '';
-                    addMessageToChatHistory("正在生成文本向量...", "system");
-
-                    // 批次處理每個文本片段
-                    const embeddings = await getEmbeddings(chunks);
-                    
-                    // 更新本地變數
-                    contentChunks = chunks;
-                    contentEmbeddings = embeddings;
-                    
-                    // 儲存處理結果
-                    chrome.storage.local.set({
-                        contentChunks: chunks,
-                        contentEmbeddings: embeddings
-                    }, function () {
-                        // 清除處理狀態訊息
-                        chatHistory.innerHTML = '';
-                        // 顯示完成訊息
-                        addMessageToChatHistory("✅ 文本處理完成，您現在可以開始提問了！", "system");
-                        setTimeout(() => {
-                            chatHistory.removeChild(chatHistory.firstChild);
-                        }, 3000);
-                        updateUIForMode(); // 更新 UI
-                    });
-
-                } catch (error) {
-                    console.error('向量化錯誤:', error);
-                    chatHistory.innerHTML = '';
-                    addMessageToChatHistory('❌ 向量化失敗: ' + error.message, "system");
-                }
-            });
-        } catch (error) {
-            console.error('處理文本錯誤:', error);
-            chatHistory.innerHTML = '';
-            addMessageToChatHistory('❌ 處理文本失敗: ' + error.message, "system");
-        }
-    }
-
-    // 修改 getEmbeddings 函數
-    async function getEmbeddings(texts, batchSize = 20) {
-        const result = await chrome.storage.local.get(['jinaApiKey']);
-        const jinaApiKey = result.jinaApiKey;
-        
-        if (!jinaApiKey) {
-            throw new Error('Jina AI API Key 未設置');
-        }
-        
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${jinaApiKey}`
-        };
-        
-        const allEmbeddings = [];
-        
-        for (let i = 0; i < texts.length; i += batchSize) {
-            const batch = texts.slice(i, i + batchSize);
-            const data = {
-                "model": "jina-clip-v2",
-                "dimensions": 1024,
-                "normalized": true,
-                "embedding_type": "float",
-                "input": batch.map(text => ({ text }))  // 將每個文本包裝成物件
-            };
-            const response = await fetch('https://api.jina.ai/v1/embeddings', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                await logApiCall('JinaAI', false, `API 請求失敗: ${response.status}`);
-                throw new Error(`API 請求失敗: ${response.status}`);
-            }
-            await logApiCall('JinaAI', true);
-
-            const result = await response.json();
-            allEmbeddings.push(...result.data.map(item => item.embedding));
-        }
-        
-        return allEmbeddings;
-    }
-
-    // 添加文本分割函數
-    function splitText(text, maxLength = 1000, overlap = 200) {
-        const paragraphs = text.split('\n');
-        const chunks = [];
-        let currentChunk = "";
-        
-        for (const para of paragraphs) {
-            const trimmedPara = para.trim();
-            if (!trimmedPara) continue;
-            
-            if (currentChunk.length + trimmedPara.length < maxLength) {
-                currentChunk += trimmedPara + " ";
-            } else {
-                if (currentChunk) {
-                    chunks.push(currentChunk.trim());
-                    // 保留重疊部分
-                    currentChunk = currentChunk.slice(-overlap) + trimmedPara + " ";
-                } else {
-                    currentChunk = trimmedPara + " ";
-                }
-            }
-        }
-        
-        if (currentChunk) {
-            chunks.push(currentChunk.trim());
-        }
-        
-        return chunks;
-    }
-
-    // 添加 HTML 標籤清除函數
-    function stripHtmlTags(html) {
-        let tmp = document.createElement("DIV");
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || "";
-    }
-
-    // 修改 rerank 函數
-    async function rerankResults(query, texts) {
-        if (!jinaApiKey) {
-            throw new Error('Jina AI API Key 未設置');
-        }
-
-        const headers = {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${jinaApiKey}`
-        };
-        
-        // 修改請求資料格式，直接使用文本陣列
-        const data = {
-            "model": "jina-reranker-v2-base-multilingual",
-            "query": query,
-            "top_n": 3,
-            "documents": texts  // 直接傳入文本陣列
-        };
-        
-        try {
-            const response = await fetch("https://api.jina.ai/v1/rerank", {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(data)
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API 請求失敗: ${response.status} - ${errorText}`);
-            }
-            
-            const result = await response.json();
-            
-            // 檢查回應格式
-            if (!result || !Array.isArray(result.results)) {
-                console.error('Unexpected API response:', result);
-                throw new Error('API 回應格式不正確');
-            }
-            
-            // 根據相關性分數和文本多樣性進行過濾
-            const filtered_results = [];
-            const seen_content = new Set();
-            
-            for (const item of result.results) {
-                const text = item.text;  // 直接使用 text 屬性
-                const score = item.score; // 使用 score 屬性
-                
-                // 計算文本的特徵指紋
-                const text_fingerprint = text.split(' ').sort().join(' ');
-                
-                // 如果內容不重複且相性分數足夠高
-                if (!seen_content.has(text_fingerprint) && score > 0.5) {
-                    filtered_results.push({
-                        document: { text },
-                        relevance_score: score
-                    });
-                    seen_content.add(text_fingerprint);
-                }
-            }
-            
-            // 如果沒有找到任何結果，使用原始文本
-            if (filtered_results.length === 0) {
-                return texts.slice(0, 3).map(text => ({
-                    document: { text },
-                    relevance_score: 1.0
-                }));
-            }
-            
-            return filtered_results.slice(0, 3); // 返回最終的 3 個結果
-            
-        } catch (error) {
-            console.error('重新排序時發生錯誤:', error);
-            // 如��� rerank 失敗，返回基於原始順序的結果
-            return texts.slice(0, 3).map(text => ({
-                document: { text },
-                relevance_score: 1.0
-            }));
-        }
-    }
-
-    // 添加餘弦相似度計算函數
-    function cosineSimilarity(a, b) {
-        const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-        const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-        const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-        return dotProduct / (normA * normB);
-    }
 
     // Handle RAG question
     async function handleRAGQuestion(question) {
@@ -986,58 +732,47 @@ document.addEventListener('DOMContentLoaded', function () {
             addMessageToChatHistory(question, 'user');
             messageInput.value = '';
 
-            const questionEmbedding = (await getEmbeddings([question]))[0];
-            await logApiCall('JinaAI', true);
-            try {
-                const similarities = contentEmbeddings.map((embedding, index) => ({
-                    index,
-                    similarity: cosineSimilarity(questionEmbedding, embedding)
-                }));
+            const messages = [
+                {
+                    role: 'user',
+                    parts: [
+                        {
+                            text: "以下是一段網頁內容："
+                        },
+                        {
+                            inline_data: {
+                                mime_type: "text/html",
+                                data: btoa(unescape(encodeURIComponent(contentChunks[0])))
+                            }
+                        },
+                        {
+                            text: `根據以上內容回答問題：${question}\n\n請用繁體中文回答。#zh-TW`
+                        }
+                    ]
+                }
+            ];
 
-                const topResults = similarities
-                    .sort((a, b) => b.similarity - a.similarity)
-                    .slice(0, 3);
-                    
-                const relevantContent = topResults
-                    .map(result => contentChunks[result.index])
-                    .join('\n\n');
+            const answer = await callLLMAPI(messages, false);
+            await logApiCall('Gemini', true);
 
-                const messages = [
-                    {
-                        role: 'user',
-                        parts: [{
-                            text: `根據以下內容回答問題：\n\n${relevantContent}\n\n問題：${question}\n\n#zh-TW`
-                        }]
-                    }
-                ];
-
-                const answer = await callLLMAPI(messages, false);
-                await logApiCall('Gemini', true);
-
-                // 更新聊天歷史
-                chrome.storage.local.get(['chatMessages'], function (result) {
-                    const chatMessages = result.chatMessages || [];
-                    chatMessages.push({ 
-                        type: 'text',
-                        text: question, 
-                        sender: 'user' 
-                    });
-                    chatMessages.push({ 
-                        type: 'text',
-                        text: answer, 
-                        sender: 'ai' 
-                    });
-                    chrome.storage.local.set({ chatMessages });
+            // 更新聊天歷史
+            chrome.storage.local.get(['chatMessages'], function (result) {
+                const chatMessages = result.chatMessages || [];
+                chatMessages.push({ 
+                    type: 'text',
+                    text: question, 
+                    sender: 'user' 
                 });
-
-            } catch (error) {
-                console.error('API 呼叫錯誤:', error);
-                await logApiCall('Gemini', false, error.message);
-                addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
-            }
+                chatMessages.push({ 
+                    type: 'text',
+                    text: answer, 
+                    sender: 'ai' 
+                });
+                chrome.storage.local.set({ chatMessages });
+            });
 
         } catch (error) {
-            await logApiCall('JinaAI', false, error.message);
+            await logApiCall('Gemini', false, error.message);
             console.error('處理問題時發生錯誤:', error);
             addMessageToChatHistory("❌ 處理問題時發生錯誤，請重試", "system");
         }
@@ -1045,7 +780,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 在 DOMContentLoaded 事件中添加函數
     function updateUIForMode() {
-        if (contentEmbeddings) {
+        if (contentChunks) {
             // RAG 模式
             uploadButton.style.display = 'none';
             ragButton.style.display = 'none';
@@ -1076,7 +811,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 3000);
                 return;
             }
-            if (contentEmbeddings) {
+            if (contentChunks) {
                 handleRAGQuestion(request.text.trim());
             } else {
                 sendMessage();
@@ -1150,7 +885,7 @@ document.addEventListener('DOMContentLoaded', function () {
         logModal.style.display = 'none';
     });
 
-    // 點擊 modal 外部區域關閉
+    // 點擊 modal 外區域關閉
     window.addEventListener('click', function (event) {
         if (event.target == logModal) {
             logModal.style.display = 'none';
@@ -1187,6 +922,64 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error('Unicode 解碼錯誤:', error);
             return str; // 如果解碼失敗，返回原始字符串
+        }
+    }
+
+    // 監聽來自 content script 的消息
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+        if (request.action === "ragContentCaptured") {
+            const content = request.content;
+            // 使用 Gemini API 處理內容
+            vectorizeContent(content);
+        }
+    });
+
+    // 向量化內容的函數
+    async function vectorizeContent(content) {
+        try {
+            // 清空聊天歷史
+            chatHistory.innerHTML = '';
+            // 清除所有相關資料
+            chrome.storage.local.remove([
+                'chatMessages',
+                'contentChunks'
+            ]);
+            // 清除本地變數
+            contentChunks = null;
+
+            // 顯示處理中訊息
+            addMessageToChatHistory("正在處理文本，請稍候...", "system");
+
+            // 儲存處理的文本
+            contentChunks = [content];
+            
+            // 儲存處理結果
+            chrome.storage.local.set({
+                contentChunks: [content]
+            }, function () {
+                // 清除所有訊息
+                chatHistory.innerHTML = '';
+                
+                // 顯示完成訊息
+                addMessageToChatHistory("✅ 文本處理完成，您現在可以開始提問了！", "system");
+                
+                // 使用 setTimeout 清除成功訊息
+                const successElement = chatHistory.querySelector('.system-message');
+                if (successElement) {
+                    setTimeout(() => {
+                        if (successElement && successElement.parentNode === chatHistory) {
+                            chatHistory.removeChild(successElement);
+                        }
+                    }, 3000);
+                }
+                
+                updateUIForMode(); // 更新 UI
+            });
+
+        } catch (error) {
+            console.error('處理文本錯誤:', error);
+            chatHistory.innerHTML = '';
+            addMessageToChatHistory('❌ 處理文本失敗: ' + error.message, "system");
         }
     }
 });
