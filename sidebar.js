@@ -128,15 +128,53 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // Load saved API key and fetch models if available
+    chrome.storage.local.get([
+        'geminiApiKey', 
+        'selectedModel', 
+        'chatMessages',
+        'contentChunks'
+    ], async function (result) {
+        if (result.geminiApiKey) {
+            geminiApiKeyInput.value = result.geminiApiKey;
+            await fetchGeminiModels();
+        }
+        
+        // 恢復聊天歷史
+        if (result.chatMessages) {
+            result.chatMessages.forEach(message => {
+                if (message.type === 'image') {
+                    addImageToHistory(`data:image/jpeg;base64,${message.text}`, message.sender);
+                } else {
+                    addMessageToChatHistory(message.text, message.sender);
+                }
+            });
+        }
+        
+        // 恢復 RAG 相關資料
+        if (result.contentChunks) {
+            contentChunks = result.contentChunks;
+            addMessageToChatHistory("✅ 已載入先前的文本內容，您可以繼續提問", "system");
+            setTimeout(() => {
+                const systemMessage = chatHistory.querySelector('.system-message');
+                if (systemMessage && systemMessage.parentNode === chatHistory) {
+                    chatHistory.removeChild(systemMessage);
+                }
+            }, 3000);
+            updateUIForMode(); // 更新 UI
+        }
+    });
+
     // Save API key and fetch models
-    saveApiKeyButton.addEventListener('click', function () {
+    saveApiKeyButton.addEventListener('click', async function () {
         const geminiApiKey = geminiApiKeyInput.value.trim();
         const apiKey = geminiApiKey;
 
         if (apiKey) {
             chrome.storage.local.set({ 
                 geminiApiKey: geminiApiKey
-            }, function () {
+            }, async function () {
+                await fetchGeminiModels();
                 closeModal();
             });
         }
@@ -263,41 +301,6 @@ document.addEventListener('DOMContentLoaded', function () {
         fileInput.value = '';
     }
 
-    // Load saved API key and fetch models if available
-    chrome.storage.local.get([
-        'geminiApiKey', 
-        'apiType', 
-        'selectedModel', 
-        'chatMessages',
-        'contentChunks'
-    ], function (result) {
-        if (result.geminiApiKey) {
-            geminiApiKeyInput.value = result.geminiApiKey;
-            fetchGeminiModels();
-        }
-        
-        // 恢復聊天歷史
-        if (result.chatMessages) {
-            result.chatMessages.forEach(message => {
-                if (message.type === 'image') {
-                    addImageToHistory(`data:image/jpeg;base64,${message.text}`, message.sender);
-                } else {
-                    addMessageToChatHistory(message.text, message.sender);
-                }
-            });
-        }
-        
-        // 恢復 RAG 相關資料
-        if (result.contentChunks) {
-            contentChunks = result.contentChunks;
-            addMessageToChatHistory("✅ 已載入先前的文本內容，您可以繼續提問", "system");
-            setTimeout(() => {
-                chatHistory.removeChild(chatHistory.firstChild);
-            }, 3000);
-            updateUIForMode(); // 更新 UI
-        }
-    });
-
     // Send message on Enter key
     messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -318,7 +321,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (modelSelect.value === 'gemini-2.0-flash-thinking-exp') {// 如果選擇了 gemini-2.0-flash-thinking-exp，則不使用工具
+        // 如果選擇的模型中有出現thinking，則不使用工具
+        if (modelSelect.value.includes('thinking')) {
             withTools = false;
         }
 
@@ -663,28 +667,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 添加 Gemini 模型獲取函數
     async function fetchGeminiModels() {
-        const geminiModels = [
-            { id: 'gemini-2.0-flash-exp', name: 'Gemini-2.0-Flash-Exp' },
-            { id: 'gemini-1.5-flash', name: 'Gemini-1.5-Flash' },
-            { id: 'gemini-1.5-pro', name: 'Gemini-1.5-Pro' },
-            { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini-2.0-flash-thinking-exp' }
-        ];
-        
-        modelSelect.innerHTML = '<option value="">選擇模型...</option>';
-        geminiModels.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = model.name;
-            modelSelect.appendChild(option);
-        });
-
-        // 設置之前選擇的模型
-        chrome.storage.local.get(['selectedModel'], function (result) {
-            if (result.selectedModel && modelSelect.querySelector(`option[value="${result.selectedModel}"]`)) {
-                modelSelect.value = result.selectedModel;
-                modelSelect.dispatchEvent(new Event('change'));
+        try {
+            const apiKey = geminiApiKeyInput.value;
+            if (!apiKey) {
+                console.error('未設定 API Key');
+                return;
             }
-        });
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            if (!response.ok) {
+                throw new Error(`API 錯誤: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // 清空現有選項
+            modelSelect.innerHTML = '<option value="">選擇模型...</option>';
+            
+            // 使用 Map 來儲存唯一的 displayName
+            const uniqueModels = new Map();
+            
+            // 過濾 Gemini 模型並處理重複的 displayName
+            data.models
+                .filter(model => model.name.includes('gemini'))
+                .forEach(model => {
+                    const displayName = model.displayName || model.name.split('models/')[1];
+                    // 如果這個 displayName 還沒有被記錄，或者是更新版本的模型，就更新它
+                    if (!uniqueModels.has(displayName) || 
+                        (model.name.includes('2.0') && !uniqueModels.get(displayName).name.includes('2.0'))) {
+                        uniqueModels.set(displayName, model);
+                    }
+                });
+
+            // 將 Map 轉換為陣列並排序
+            const sortedModels = Array.from(uniqueModels.values())
+                .sort((a, b) => {
+                    // 優先顯示 gemini-2.0 的模型
+                    const aVersion = a.name.includes('2.0') ? 1 : 0;
+                    const bVersion = b.name.includes('2.0') ? 1 : 0;
+                    if (aVersion !== bVersion) {
+                        return bVersion - aVersion;
+                    }
+                    // 如果版本相同，按照 displayName 排序
+                    return (a.displayName || '').localeCompare(b.displayName || '');
+                });
+
+            // 添加模型選項
+            sortedModels.forEach(model => {
+                const modelId = model.name.split('models/')[1];
+                const option = document.createElement('option');
+                option.value = modelId;
+                option.textContent = model.displayName || modelId;
+                modelSelect.appendChild(option);
+            });
+
+            // 設置之前選擇的模型
+            chrome.storage.local.get(['selectedModel'], function (result) {
+                if (result.selectedModel && modelSelect.querySelector(`option[value="${result.selectedModel}"]`)) {
+                    modelSelect.value = result.selectedModel;
+                    modelSelect.dispatchEvent(new Event('change'));
+                }
+            });
+
+        } catch (error) {
+            console.error('獲取模型列表失敗:', error);
+            addMessageToChatHistory('❌ 獲取模型列表失敗: ' + error.message, "system");
+        }
     }
 
     // 添加 RAG 按鈕點擊事件
