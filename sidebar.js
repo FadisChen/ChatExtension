@@ -32,30 +32,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const logList = document.getElementById('log-list');
     const clearLogButton = document.getElementById('clear-log');
     const closeLogModalBtn = logModal.querySelector('.close-modal');
-    
-    //updateApiInputVisibility();
-    //saveApiKeys();
-
-    function updateApiInputVisibility() {
-        geminiApiWrapper.style.display = 'block';
-    }
-
-    // 儲存 API Keys
-    function saveApiKeys() {
-        const geminiApiKey = geminiApiKeyInput.value.trim();
-        chrome.storage.sync.set({
-            geminiApiKey: geminiApiKey
-        });
-    }
-
-    // 載入儲存的 API Keys
+      // 載入儲存的 API Keys
     chrome.storage.sync.get([
         'geminiApiKey'
     ], function (result) {
         if (result.geminiApiKey) {
             geminiApiKeyInput.value = result.geminiApiKey;
         }
-        updateApiInputVisibility();
+        // 顯示 API 輸入框
+        geminiApiWrapper.style.display = 'block';
     });
 
     // Modal functions
@@ -333,12 +318,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         text: `你是一個AI助手。預設使用繁體中文(zh-TW)回答，除非使用者要求翻譯成指定語言。請用自然、流暢且專業的語氣回應。當前時間：${getCurrentTime()}`
                     }]
                 },
-                contents: [],
-                generationConfig: {
+                contents: [],                generationConfig: {
                     temperature: 0.9,
                     topK: 1,
                     topP: 1,
-                    maxOutputTokens: 2048,
                 }
             };
 
@@ -390,11 +373,42 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const decoder = new TextDecoder();
             const reader = response.body.getReader();
-            let buffer = '';
-
-            while (true) {
+            let buffer = '';            while (true) {
                 const {value, done} = await reader.read();
-                if (done) break;
+                
+                // 如果流結束，使用 {stream: false} 解碼剩餘部分確保處理完整
+                if (done) {
+                    // 處理可能剩餘在 buffer 中的最後數據
+                    if (buffer.length > 0) {
+                        const lines = buffer.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ') && line.length > 6) {
+                                try {
+                                    const jsonStr = line.slice(6);
+                                    if (jsonStr.trim() === '[DONE]') continue;
+                                    
+                                    const data = JSON.parse(jsonStr);
+                                    if (data.candidates && data.candidates[0].content) {
+                                        const text = data.candidates[0].content.parts[0].text || '';
+                                        fullResponse += text;
+                                        
+                                        const htmlContent = marked.parse(fullResponse);
+                                        messageElement.innerHTML = htmlContent;
+                                        
+                                        messageElement.querySelectorAll('pre code').forEach((block) => {
+                                            hljs.highlightBlock(block);
+                                        });
+                                        
+                                        chatHistory.scrollTop = chatHistory.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.error('解析最終數據時發生錯誤:', e);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
 
                 buffer += decoder.decode(value, {stream: true});
                 const lines = buffer.split('\n');
@@ -437,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 chatHistory.scrollTop = chatHistory.scrollHeight;
                             }
                         } catch (e) {
-                            console.error('解析數據時發生錯誤:', e);
+                            //console.error('解析數據時發生錯誤:', e);
                         }
                     }
                 }
@@ -631,10 +645,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 messageElement.innerHTML = `<span role="processing">${message}</span>`;
             } else {
                 messageElement.textContent = message;
-            }
-        } else {
+            }        } else {
             try {
                 messageElement.innerHTML = marked.parse(message);
+                
+                // 增強表格樣式
+                enhanceTableStyles(messageElement);
             } catch (error) {
                 console.error('Markdown 解析錯誤:', error);
                 messageElement.textContent = message;
@@ -938,9 +954,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.target == logModal) {
             logModal.style.display = 'none';
         }
-    });
-
-    // 設定 marked 選項
+    });    // 設定 marked 選項
     marked.setOptions({
         breaks: true,  // 支援換行
         gfm: true,     // 支援 GitHub Flavored Markdown
@@ -948,10 +962,22 @@ document.addEventListener('DOMContentLoaded', function () {
         highlight: function (code, lang) {
             // 如果需要程式碼高亮，可以在這裡添加
             return code;
-        }
-    });
-
-    // 添加一個用於解碼 Unicode 的輔助函數
+        },
+        // 自訂 renderer 來增強表格樣式
+        renderer: (function() {
+            const renderer = new marked.Renderer();
+            
+            // 增強表格渲染
+            const originalTable = renderer.table;
+            renderer.table = function(header, body) {
+                return '<div class="table-container">' + 
+                       originalTable.call(this, header, body) + 
+                       '</div>';
+            };
+            
+            return renderer;
+        })()
+    });    // 添加一個用於解碼 Unicode 的輔助函數
     function decodeUnicode(str) {
         try {
             // 如果是 JSON 字符串，先解析它
@@ -971,6 +997,30 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('Unicode 解碼錯誤:', error);
             return str; // 如果解碼失敗，返回原始字符串
         }
+    }
+    
+    // 添加表格樣式增強函數
+    function enhanceTableStyles(element) {
+        // 處理表格
+        const tables = element.querySelectorAll('table');
+        tables.forEach(table => {
+            // 為表格添加自適應容器
+            if (!table.parentNode.classList.contains('table-container')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-container';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            }
+            
+            // 確保標題列有適當的樣式
+            const headerRow = table.querySelector('thead tr');
+            if (headerRow) {
+                const headerCells = headerRow.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    cell.setAttribute('scope', 'col');
+                });
+            }
+        });
     }
 
     // 監聽來自 content script 的消息
